@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "crates/rag-core",
+    "crates/rag-cli",
+    "crates/rag-daemon",
+    "crates/rag-tauri/src-tauri",
+]
+resolver = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1

@@ -1,0 +1,53 @@
+[package]
+name = "rag-core"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "rag_core"
+path = "src/lib.rs"
+
+[dependencies]
+# Vector DB & Embedding (as specified in design)
+hnswlib-rs = "0.1"        # Pure Rust HNSW (C dependency free, Windows compatible)
+bincode = "1"              # Binary serialization for HNSW index
+fastembed = "4"
+
+# LLM Client
+async-openai = "0.27"
+
+# PDF & OCR
+pdf-extract = "0.7"
+leptess = "0.4"            # Tesseract + Leptonica bindings (OCR)
+
+# Database
+rusqlite = { version = "0.31", features = ["bundled"] }
+
+# Spreadsheets & Data Formats
+calamine = "0.24"
+csv = "1.3"
+scraper = "0.19"
+pulldown-cmark = "0.11"
+
+# Media metadata
+id3 = "1"
+mp4ameta = "0.13"
+kamadak-exif = "0.5"
+
+# Text processing & NLP
+lindera = "0.40"            # Japanese morphological analysis for chunk splitting
+
+# Async & concurrency
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
+notify = "6"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+
+# Error handling
+anyhow = "1"
+
+[dev-dependencies]
