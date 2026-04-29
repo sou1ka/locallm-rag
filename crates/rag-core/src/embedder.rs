@@ -1,190 +1,134 @@
 //! Embedding Module
 //!
-//! Provides text embedding using fastembed-rs with custom ONNX models.
-//! Supports ruri-v3-310m (Japanese-optimized) and other ONNX models.
+//! Wraps fastembed-rs for document and query vectorization.
+//! Uses ruri-v3-310m (Japanese-optimized) ONNX model.
 
 use crate::config::EmbedderConfig;
-use fastembed::{TextEmbedding, UserDefinedEmbeddingModel, TokenizerFiles};
-use std::path::PathBuf;
+use fastembed::TextEmbedding;
+use std::path::Path;
 
-/// Text embedding wrapper using fastembed
+/// Embedder wrapper for fastembed with custom ONNX models
 pub struct Embedder {
     model: TextEmbedding,
     config: EmbedderConfig,
 }
 
 impl Embedder {
-    /// Create a new embedder from configuration
+    /// Create embedder from config
     ///
-    /// Loads custom ONNX model specified in config (e.g., ruri-v3-310m)
-    ///
-    /// # Errors
-    /// Returns error if model or tokenizer files don't exist or fail to load
+    /// Loads ruri-v3-310m ONNX model from file paths specified in config.
     pub fn new(config: EmbedderConfig) -> crate::Result<Self> {
-        // Convert paths to PathBuf
-        let onnx_path = PathBuf::from(&config.onnx_path);
-        let tokenizer_path = PathBuf::from(&config.tokenizer_path);
+        let onnx_path = Path::new(&config.onnx_path);
+        let tokenizer_path = Path::new(&config.tokenizer_path);
+        // モデルディレクトリ（onnx_pathの親ディレクトリを想定）
+        let model_dir = onnx_path
+            .parent()
+            .ok_or_else(|| crate::anyhow!("Invalid onnx_path"))?;
 
-        // Verify model files exist
-        if !onnx_path.exists() {
-            return Err(crate::anyhow!(
-                "ONNX model file not found: {}",
-                onnx_path.display()
-            ));
-        }
-        if !tokenizer_path.exists() {
-            return Err(crate::anyhow!(
-                "Tokenizer file not found: {}",
-                tokenizer_path.display()
-            ));
-        }
+        let read = |filename: &str| -> crate::Result<Vec<u8>> {
+            let p = model_dir.join(filename);
+            std::fs::read(&p)
+                .map_err(|e| crate::anyhow!("Failed to read {}: {}", p.display(), e))
+        };
 
-        // Load custom model
+        let onnx_bytes      = std::fs::read(onnx_path)
+            .map_err(|e| crate::anyhow!("Failed to read ONNX: {}", e))?;
+        let tokenizer_bytes = std::fs::read(tokenizer_path)
+            .map_err(|e| crate::anyhow!("Failed to read tokenizer: {}", e))?;
+        let config_bytes             = read("config.json")?;
+        let special_tokens_bytes     = read("special_tokens_map.json")?;
+        let tokenizer_config_bytes   = read("tokenizer_config.json")?;
+
+        let token_files = fastembed::TokenizerFiles {
+            tokenizer_file:         tokenizer_bytes,
+            config_file:            config_bytes,
+            special_tokens_map_file: special_tokens_bytes,
+            tokenizer_config_file:  tokenizer_config_bytes,
+        };
+
+        // non_exhaustiveのためstructリテラル不可 → マクロ相当の手動組み立て
+        // UserDefinedEmbeddingModelはDerefできないのでDefaultを経由して上書き
+        let user_model = fastembed::UserDefinedEmbeddingModel::new(onnx_bytes, token_files);
+
         let model = TextEmbedding::try_new_from_user_defined(
-            UserDefinedEmbeddingModel {
-                onnx_file: onnx_path,
-                tokenizer_files: TokenizerFiles {
-                    tokenizer_file: tokenizer_path,
-                    ..Default::default()
-                },
-            },
-            Default::default(),
-        ).map_err(|e| {
-            crate::anyhow!("Failed to load embedding model: {}", e)
-        })?;
+            user_model,
+            fastembed::InitOptionsUserDefined::default(),
+        )
+        .map_err(|e| crate::anyhow!("Failed to load embedding model: {}", e))?;
 
         Ok(Self { model, config })
     }
 
-    /// Embed a document with the document prefix
-    ///
-    /// Automatically adds doc_prefix to the text for optimal embedding quality
-    /// (required for ruri-v3 and similar Japanese models)
-    ///
-    /// # Arguments
-    /// * `text` - Document text to embed
-    ///
-    /// # Returns
-    /// Embedding vector (typically 768 or 1024 dimensions)
+    /// Embed document with doc_prefix
     pub fn embed_document(&self, text: &str) -> crate::Result<Vec<f32>> {
-        let prefixed_text = format!("{}{}", self.config.doc_prefix, text);
-        self.embed_text(&prefixed_text)
+        let prefixed = format!("{}{}", self.config.doc_prefix, text);
+        self.embed_text(&prefixed)
     }
 
-    /// Embed a query with the query prefix
-    ///
-    /// Automatically adds query_prefix to the text for optimal embedding quality
-    /// (required for ruri-v3 and similar Japanese models)
-    ///
-    /// # Arguments
-    /// * `text` - Query text to embed
-    ///
-    /// # Returns
-    /// Embedding vector (typically 768 or 1024 dimensions)
+    /// Embed query with query_prefix
     pub fn embed_query(&self, text: &str) -> crate::Result<Vec<f32>> {
-        let prefixed_text = format!("{}{}", self.config.query_prefix, text);
-        self.embed_text(&prefixed_text)
+        let prefixed = format!("{}{}", self.config.query_prefix, text);
+        self.embed_text(&prefixed)
     }
 
-    /// Embed multiple documents efficiently
-    ///
-    /// Batch processing is more efficient than calling embed_document repeatedly
-    ///
-    /// # Arguments
-    /// * `texts` - Document texts to embed
-    ///
-    /// # Returns
-    /// Vector of embedding vectors
+    /// Embed batch of documents
     pub fn embed_documents(&self, texts: Vec<&str>) -> crate::Result<Vec<Vec<f32>>> {
-        let prefixed_texts: Vec<String> = texts
+        let prefixed: Vec<String> = texts
             .iter()
-            .map(|text| format!("{}{}", self.config.doc_prefix, text))
+            .map(|t| format!("{}{}", self.config.doc_prefix, t))
             .collect();
-
-        let text_refs: Vec<&str> = prefixed_texts.iter().map(|s| s.as_str()).collect();
-        self.embed_batch(&text_refs)
+        let refs: Vec<&str> = prefixed.iter().map(|s| s.as_str()).collect();
+        self.embed_batch(&refs)
     }
 
-    /// Embed multiple queries efficiently
-    ///
-    /// Batch processing is more efficient than calling embed_query repeatedly
-    ///
-    /// # Arguments
-    /// * `texts` - Query texts to embed
-    ///
-    /// # Returns
-    /// Vector of embedding vectors
+    /// Embed batch of queries
     pub fn embed_queries(&self, texts: Vec<&str>) -> crate::Result<Vec<Vec<f32>>> {
-        let prefixed_texts: Vec<String> = texts
+        let prefixed: Vec<String> = texts
             .iter()
-            .map(|text| format!("{}{}", self.config.query_prefix, text))
+            .map(|t| format!("{}{}", self.config.query_prefix, t))
             .collect();
-
-        let text_refs: Vec<&str> = prefixed_texts.iter().map(|s| s.as_str()).collect();
-        self.embed_batch(&text_refs)
+        let refs: Vec<&str> = prefixed.iter().map(|s| s.as_str()).collect();
+        self.embed_batch(&refs)
     }
 
-    /// Internal method to embed a single text
     fn embed_text(&self, text: &str) -> crate::Result<Vec<f32>> {
-        let embeddings = self.model.embed(vec![text], None)
-            .map_err(|e| crate::anyhow!("Embedding failed: {}", e))?;
-
-        embeddings
+        self.model
+            .embed(vec![text], None)
+            .map_err(|e| crate::anyhow!("Embedding failed: {}", e))?
             .into_iter()
             .next()
-            .ok_or_else(|| crate::anyhow!("No embeddings returned from model"))
+            .ok_or_else(|| crate::anyhow!("No embeddings returned"))
     }
 
-    /// Internal method to embed multiple texts in batch
     fn embed_batch(&self, texts: &[&str]) -> crate::Result<Vec<Vec<f32>>> {
         if texts.is_empty() {
             return Ok(Vec::new());
         }
-
-        let embeddings = self.model.embed(texts.to_vec(), None)
-            .map_err(|e| crate::anyhow!("Batch embedding failed: {}", e))?;
-
-        Ok(embeddings)
+        self.model
+            .embed(texts.to_vec(), None)
+            .map_err(|e| crate::anyhow!("Batch embedding failed: {}", e))
     }
 
-    /// Get embedding model information
-    pub fn model_info(&self) -> EmbedderInfo {
-        EmbedderInfo {
-            model_type: self.config.model_type.clone(),
-            onnx_path: self.config.onnx_path.clone(),
-            tokenizer_path: self.config.tokenizer_path.clone(),
-            doc_prefix: self.config.doc_prefix.clone(),
-            query_prefix: self.config.query_prefix.clone(),
-        }
+    pub fn model_type(&self) -> &str {
+        &self.config.model_type
+    }
+
+    pub fn doc_prefix(&self) -> &str {
+        &self.config.doc_prefix
+    }
+
+    pub fn query_prefix(&self) -> &str {
+        &self.config.query_prefix
     }
 }
 
-/// Information about the loaded embedding model
-#[derive(Debug, Clone)]
-pub struct EmbedderInfo {
-    pub model_type: String,
-    pub onnx_path: String,
-    pub tokenizer_path: String,
-    pub doc_prefix: String,
-    pub query_prefix: String,
-}
-
-/// Compute cosine similarity between two embedding vectors
-///
-/// Returns value between -1.0 and 1.0 (typically -1.0 to 1.0, often 0.0 to 1.0 for embeddings)
-///
-/// # Arguments
-/// * `a` - First embedding vector
-/// * `b` - Second embedding vector
-///
-/// # Returns
-/// Cosine similarity score
+/// Cosine similarity between embeddings
 pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;
     }
 
-    let dot_product: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let dot: f32 = a.iter().zip(b).map(|(x, y)| x * y).sum();
     let norm_a: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
     let norm_b: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
 
@@ -192,7 +136,7 @@ pub fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         return 0.0;
     }
 
-    dot_product / (norm_a * norm_b)
+    dot / (norm_a * norm_b)
 }
 
 #[cfg(test)]
@@ -203,33 +147,21 @@ mod tests {
     fn test_cosine_similarity_identical() {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![1.0, 0.0, 0.0];
-        let sim = cosine_similarity(&a, &b);
-        assert!((sim - 1.0).abs() < 0.0001, "Identical vectors should have similarity 1.0");
+        assert!((cosine_similarity(&a, &b) - 1.0).abs() < 0.0001);
     }
 
     #[test]
     fn test_cosine_similarity_orthogonal() {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![0.0, 1.0, 0.0];
-        let sim = cosine_similarity(&a, &b);
-        assert!(sim.abs() < 0.0001, "Orthogonal vectors should have similarity 0.0");
+        assert!(cosine_similarity(&a, &b).abs() < 0.0001);
     }
 
     #[test]
     fn test_cosine_similarity_opposite() {
         let a = vec![1.0, 0.0, 0.0];
         let b = vec![-1.0, 0.0, 0.0];
-        let sim = cosine_similarity(&a, &b);
-        assert!((sim - (-1.0)).abs() < 0.0001, "Opposite vectors should have similarity -1.0");
-    }
-
-    #[test]
-    fn test_cosine_similarity_45degree() {
-        let a = vec![1.0, 0.0];
-        let b = vec![1.0, 1.0].iter().map(|x| x / 2.0_f32.sqrt()).collect::<Vec<_>>();
-        let sim = cosine_similarity(&a, &b);
-        let expected_cos_45 = 45.0_f32.to_radians().cos();
-        assert!((sim - expected_cos_45).abs() < 0.0001);
+        assert!((cosine_similarity(&a, &b) + 1.0).abs() < 0.0001);
     }
 
     #[test]
@@ -240,61 +172,36 @@ mod tests {
     }
 
     #[test]
-    fn test_cosine_similarity_length_mismatch() {
-        let a = vec![1.0, 0.0, 0.0];
-        let b = vec![1.0, 0.0];
-        assert_eq!(cosine_similarity(&a, &b), 0.0);
-    }
-
-    #[test]
-    fn test_cosine_similarity_zero_vector() {
-        let a = vec![0.0, 0.0, 0.0];
+    fn test_cosine_similarity_mismatch() {
+        let a = vec![1.0, 0.0];
         let b = vec![1.0, 0.0, 0.0];
         assert_eq!(cosine_similarity(&a, &b), 0.0);
     }
 
     #[test]
-    fn test_embedder_info_creation() {
-        let config = EmbedderConfig {
-            model_type: "ruri-v3".to_string(),
-            onnx_path: "./models/ruri-v3.onnx".to_string(),
-            tokenizer_path: "./models/tokenizer.json".to_string(),
-            doc_prefix: "文章: ".to_string(),
-            query_prefix: "クエリ: ".to_string(),
-        };
-
-        let info = EmbedderInfo {
-            model_type: config.model_type.clone(),
-            onnx_path: config.onnx_path.clone(),
-            tokenizer_path: config.tokenizer_path.clone(),
-            doc_prefix: config.doc_prefix.clone(),
-            query_prefix: config.query_prefix.clone(),
-        };
-
-        assert_eq!(info.model_type, "ruri-v3");
-        assert_eq!(info.doc_prefix, "文章: ");
-        assert_eq!(info.query_prefix, "クエリ: ");
-    }
-
-    #[test]
-    fn test_prefix_application() {
+    fn test_prefix_format() {
         let doc_prefix = "文章: ";
         let query_prefix = "クエリ: ";
 
-        let doc_text = "This is a document";
-        let query_text = "What is this?";
+        let doc = format!("{}{}", doc_prefix, "Hello");
+        let query = format!("{}{}", query_prefix, "Hi");
 
-        let prefixed_doc = format!("{}{}", doc_prefix, doc_text);
-        let prefixed_query = format!("{}{}", query_prefix, query_text);
-
-        assert_eq!(prefixed_doc, "文章: This is a document");
-        assert_eq!(prefixed_query, "クエリ: What is this?");
+        assert_eq!(doc, "文章: Hello");
+        assert_eq!(query, "クエリ: Hi");
     }
 
     #[test]
-    fn test_normalize_vector() {
+    fn test_normalize() {
         let v = vec![3.0, 4.0];
-        let norm = (v.iter().map(|x| x * x).sum::<f32>()).sqrt();
+        let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
         assert!((norm - 5.0).abs() < 0.0001);
+    }
+
+    #[test]
+    fn test_cosine_similarity_scaled() {
+        let a = vec![1.0, 2.0, 3.0];
+        let b = vec![2.0, 4.0, 6.0];
+        let sim = cosine_similarity(&a, &b);
+        assert!((sim - 1.0).abs() < 0.0001);
     }
 }

@@ -16,6 +16,9 @@ fastembed = "4"
 # LLM Client
 async-openai = "0.27"
 
+# mod/dir
+walkdir = "2"
+
 # PDF & OCR
 pdf-extract = "0.7"
 leptess = "0.4"            # Tesseract + Leptonica bindings (OCR)
@@ -35,7 +38,8 @@ mp4ameta = "0.13"
 kamadak-exif = "0.5"
 
 # Text processing & NLP
-lindera = "0.40"            # Japanese morphological analysis for chunk splitting
+lindera = "0.40"          # Japanese morphological analysis for chunk splitting
+lindera-ipadic = "0.40"   # 日本語辞書（IPAdic）
 
 # Async & concurrency
 tokio = { version = "1", features = ["full"] }
