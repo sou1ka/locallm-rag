@@ -61,13 +61,17 @@ enum Commands {
 
     /// Start an interactive chat session
     Chat {
-        /// Session name for history continuity
-        #[arg(short, long, default_value = "default")]
-        session: String,
+        /// Session ID to resume (e.g. 20260506_143022)
+        #[arg(short, long)]
+        session: Option<String>,
 
         /// Bypass RAG and send directly to LLM
         #[arg(long)]
         no_rag: bool,
+
+        /// List past conversation sessions
+        #[arg(short, long)]
+        list: bool,
     },
 
     /// Manage the vector index
@@ -135,8 +139,12 @@ async fn main() {
             commands::query::run(&config, &text, !no_rag, top_k, show_context).await
         }
 
-        Commands::Chat { session, no_rag } => {
-            commands::chat::run(&config, &session, !no_rag).await
+        Commands::Chat { session, no_rag, list } => {
+            if list {
+                commands::chat::list_sessions(&config).await
+            } else {
+                commands::chat::run(&config, session.as_deref(), !no_rag).await
+            }
         }
 
         Commands::Index { action } => match action {

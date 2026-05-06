@@ -46,15 +46,45 @@ pub enum SourceConfig {
 
 /// Load config from path
 pub fn load(path: &str) -> Result<Config> {
-    let content = std::fs::read_to_string(path)
+    let config_path = std::path::Path::new(path);
+    let content = std::fs::read_to_string(config_path)
         .with_context(|| format!("Config file not found: {}", path))?;
-
-    let config: Config = toml::from_str(&content)
+    let mut config: Config = toml::from_str(&content)
         .with_context(|| format!("Failed to parse config file: {}", path))?;
 
-    validate(&config)?;
+    // config.toml の場所を基準に相対パスを絶対パスに展開
+    let base_dir = config_path
+        .parent()
+        .unwrap_or(std::path::Path::new("."))
+        .canonicalize()
+        .unwrap_or_else(|_| {
+            // canonicalizeが失敗した場合はカレントディレクトリを使う
+            std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+        });
 
+    config.resolve_paths(&base_dir);
+    validate(&config)?;
     Ok(config)
+}
+
+impl Config {
+    fn resolve_paths(&mut self, base_dir: &std::path::Path) {
+        self.rag.index_path  = resolve(base_dir, &self.rag.index_path);
+        self.rag.chunks_path = resolve(base_dir, &self.rag.chunks_path);
+        self.embedder.onnx_path      = resolve(base_dir, &self.embedder.onnx_path);
+        self.embedder.tokenizer_path = resolve(base_dir, &self.embedder.tokenizer_path);
+        self.conversation.summary_dir =
+            resolve(base_dir, &self.conversation.summary_dir);
+    }
+}
+
+fn resolve(base_dir: &std::path::Path, path: &str) -> String {
+    let p = std::path::Path::new(path);
+    if p.is_absolute() {
+        path.to_string()
+    } else {
+        base_dir.join(p).to_string_lossy().to_string()
+    }
 }
 
 /// Validate config values

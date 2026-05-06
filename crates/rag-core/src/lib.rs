@@ -11,6 +11,7 @@ pub mod store;
 pub mod retriever;
 pub mod llm;
 pub mod conversation;
+pub mod history;
 
 // Re-export main types
 pub use config::Config;

@@ -62,6 +62,7 @@ pub struct ConversationConfig {
     pub summary_keep_recent: usize,
     pub auto_save_summary: bool,
     pub summary_dir: String,
+    pub history_dir: String,
 }
 
 /// Daemon process settings
@@ -172,6 +173,7 @@ impl Config {
                 summary_keep_recent: 5,
                 auto_save_summary: true,
                 summary_dir: "./data/summaries".to_string(),
+                history_dir: "./history".to_string(),
             },
             daemon: DaemonConfig {
                 socket_path: "/tmp/rag-daemon.sock".to_string(),
