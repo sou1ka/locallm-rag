@@ -14,12 +14,13 @@ doc_prefix      = "文章: "
 query_prefix    = "クエリ: "
 
 [llm]
-base_url = "http://localhost:11434/v1"
-model    = "nvidia-nemotron-nano-9b-v2-japanese:latest"
-api_key  = "ollama"
+base_url = "http://localhost:18888/v1"
+model    = "Bonsai-8B-Q1_0"
+api_key  = "dummy"
 
 [conversation]
 max_history_turns   = 20
 summary_keep_recent = 5
 auto_save_summary   = true
 summary_dir         = "./data/summaries"
+history_dir         = "./history"
