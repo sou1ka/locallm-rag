@@ -6,17 +6,26 @@
 use crate::RagConfig;
 use lindera::tokenizer::Tokenizer;
 use lindera::tokenizer::TokenizerConfig;
+//use lindera::DictionaryKind;
+//use lindera::Mode;
 
 /// Text splitter that creates overlapping chunks
 pub struct ChunkSplitter {
     config: RagConfig,
-    tokenizer: Tokenizer,
+//    tokenizer: Tokenizer,
 }
-
+/*
 impl ChunkSplitter {
-    /// Create a new chunk splitter from config
     pub fn new(config: RagConfig) -> crate::Result<Self> {
-        let tokenizer_config = TokenizerConfig::default();
+        let tokenizer_config = TokenizerConfig {
+            dictionary: lindera::DictionaryConfig {
+                kind: Some(DictionaryKind::IPADIC),
+                path: None,
+            },
+            user_dictionary: None,
+            mode: Mode::Normal,
+        };
+
         let tokenizer = Tokenizer::from_config(&tokenizer_config)
             .map_err(|e| crate::anyhow!("Failed to create tokenizer: {}", e))?;
 
@@ -92,6 +101,44 @@ impl ChunkSplitter {
     pub fn chunk_overlap(&self) -> usize {
         self.config.chunk_overlap
     }
+}
+*/
+impl ChunkSplitter {
+    pub fn new(config: RagConfig) -> crate::Result<Self> {
+        Ok(Self { config })
+    }
+
+    pub fn split(&self, text: &str) -> crate::Result<Vec<String>> {
+        if text.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let chars: Vec<char> = text.chars().collect();
+
+        if chars.len() <= self.config.chunk_size {
+            return Ok(vec![text.to_string()]);
+        }
+
+        let mut chunks = Vec::new();
+        let mut start = 0;
+
+        loop {
+            let end = std::cmp::min(start + self.config.chunk_size, chars.len());
+            let chunk: String = chars[start..end].iter().collect();
+            chunks.push(chunk);
+
+            if end >= chars.len() {
+                break;
+            }
+
+            start += self.config.chunk_size - self.config.chunk_overlap;
+        }
+
+        Ok(chunks)
+    }
+
+    pub fn chunk_size(&self) -> usize { self.config.chunk_size }
+    pub fn chunk_overlap(&self) -> usize { self.config.chunk_overlap }
 }
 
 #[cfg(test)]

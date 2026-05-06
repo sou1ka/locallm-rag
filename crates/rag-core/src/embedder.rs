@@ -61,14 +61,26 @@ impl Embedder {
 
     /// Embed document with doc_prefix
     pub fn embed_document(&self, text: &str) -> crate::Result<Vec<f32>> {
+        //let prefixed = format!("{}{}", self.config.doc_prefix, text);
+        //self.embed_text(&prefixed)
         let prefixed = format!("{}{}", self.config.doc_prefix, text);
-        self.embed_text(&prefixed)
+        let result = self.embed_text(&prefixed)?;
+        // デバッグ出力
+        //let norm: f32 = result.iter().map(|x| x * x).sum::<f32>().sqrt();
+        //eprintln!("[DEBUG] embed_document norm={:.4} dim={}", norm, result.len());
+        Ok(result)
     }
 
     /// Embed query with query_prefix
     pub fn embed_query(&self, text: &str) -> crate::Result<Vec<f32>> {
+        //let prefixed = format!("{}{}", self.config.query_prefix, text);
+        //self.embed_text(&prefixed)
         let prefixed = format!("{}{}", self.config.query_prefix, text);
-        self.embed_text(&prefixed)
+        let result = self.embed_text(&prefixed)?;
+        // デバッグ出力
+        //let norm: f32 = result.iter().map(|x| x * x).sum::<f32>().sqrt();
+        //eprintln!("[DEBUG] embed_query norm={:.4} dim={}", norm, result.len());
+        Ok(result)
     }
 
     /// Embed batch of documents

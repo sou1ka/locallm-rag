@@ -61,12 +61,21 @@ fn extract_html(html: &str) -> String {
     let document = Html::parse_document(html);
 
     // script / style タグは除外
-    let selector = Selector::parse("script, style").unwrap();
     let mut text_parts = Vec::new();
 
+    // 置き換え後（script/styleを除外）
+    let exclude = Selector::parse("script, style, noscript").unwrap();
+    let excluded_nodes: std::collections::HashSet<_> = document
+        .select(&exclude)
+        .flat_map(|el| el.descendants())
+        .map(|n| n.id())
+        .collect();
+
     for node in document.root_element().descendants() {
+        if excluded_nodes.contains(&node.id()) {
+            continue;
+        }
         if let Some(text_node) = node.value().as_text() {
-            // script/styleの子ノードはスキップ
             let trimmed = text_node.trim();
             if !trimmed.is_empty() {
                 text_parts.push(trimmed.to_string());
@@ -83,7 +92,6 @@ fn extract_markdown(md: &str) -> String {
 
     let parser = Parser::new(md);
     let mut text = String::new();
-    let mut in_code_block = false;
 
     for event in parser {
         match event {
@@ -93,10 +101,9 @@ fn extract_markdown(md: &str) -> String {
                 text.push_str(&t);
             }
             Event::Start(Tag::CodeBlock(_)) => {
-                in_code_block = true;
+                text.push('\n');
             }
             Event::End(TagEnd::CodeBlock) => {
-                in_code_block = false;
                 text.push('\n');
             }
             Event::SoftBreak | Event::HardBreak => {

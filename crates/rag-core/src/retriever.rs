@@ -43,6 +43,12 @@ impl<'a> Retriever<'a> {
             .store
             .search(query_embedding, Some(self.config.top_k))?;
 
+        // ← デバッグ出力を追加
+        //eprintln!("[DEBUG] search returned {} results", results.len());
+        //for (id, score) in &results {
+        //    eprintln!("[DEBUG] chunk_id={} score={:.4}", id, score);
+        //}
+
         // Filter by score threshold
         let filtered: Vec<RetrievalResult> = results
             .into_iter()
@@ -85,9 +91,11 @@ impl<'a> Retriever<'a> {
 mod tests {
     use super::*;
 
+    // テスト内の create_test_config() を修正
     fn create_test_config() -> RagConfig {
         RagConfig {
-            db_path: "./data/test".to_string(),
+            index_path: "./data/index.bin".to_string(),
+            chunks_path: "./data/chunks.json".to_string(),
             chunk_size: 512,
             chunk_overlap: 128,
             top_k: 5,

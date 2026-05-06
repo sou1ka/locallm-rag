@@ -20,7 +20,8 @@ pub struct Config {
 /// RAG engine specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RagConfig {
-    pub db_path: String,
+    pub index_path: String,
+    pub chunks_path: String,
     pub chunk_size: usize,
     pub chunk_overlap: usize,
     pub top_k: usize,
@@ -141,7 +142,8 @@ impl Config {
     pub fn default_for_testing() -> Self {
         Self {
             rag: RagConfig {
-                db_path: "./data/lancedb_data".to_string(),
+                index_path: "./data/index.bin".to_string(),
+                chunks_path: "./data/chunks.json".to_string(),
                 chunk_size: 512,
                 chunk_overlap: 128,
                 top_k: 5,
@@ -270,7 +272,7 @@ impl Config {
 
     /// Get absolute path for database
     pub fn get_db_path(&self) -> PathBuf {
-        Self::expand_path(&self.rag.db_path)
+        Self::expand_path(&self.rag.index_path)
     }
 
     /// Get absolute path for summaries directory

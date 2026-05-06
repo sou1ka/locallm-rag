@@ -1,74 +1,25 @@
-# RAG Engine Configuration
-
 [rag]
-db_path = "./data/lancedb_data"
-chunk_size = 512
-chunk_overlap = 128
-top_k = 5
-score_threshold = 0.5
+index_path      = "./data/index.bin"
+chunks_path     = "./data/chunks.json"
+chunk_size      = 500
+chunk_overlap   = 50
+top_k           = 5
+score_threshold = 0.3
 
 [embedder]
-model_type = "ruri-v3"
-onnx_path = "./models/ruri-v3-310m-onnx"
-tokenizer_path = "./models/ruri-v3-310m-tokenizer.json"
-doc_prefix = "为了找到最相关的文章,"
-query_prefix = "表示这个句子为了与其他句子进行语义比较:"
-
-[ocr]
-enabled = true
-tessdata_path = "/usr/share/tesseract-ocr/4.00/tessdata"
-lang = "jpn"
-min_dpi = 150
+model_type      = "custom_onnx"
+onnx_path       = "./models/ruri-v3-310m/model.onnx"
+tokenizer_path  = "./models/ruri-v3-310m/tokenizer.json"
+doc_prefix      = "文章: "
+query_prefix    = "クエリ: "
 
 [llm]
 base_url = "http://localhost:11434/v1"
-model = "mistral"
-api_key = "ollama"
+model    = "nvidia-nemotron-nano-9b-v2-japanese:latest"
+api_key  = "ollama"
 
 [conversation]
-max_history_turns = 20
+max_history_turns   = 20
 summary_keep_recent = 5
-auto_save_summary = true
-summary_dir = "./data/summaries"
-
-[daemon]
-socket_path = "/tmp/rag-daemon.sock"
-pid_path = "/tmp/rag-daemon.pid"
-
-[[sources]]
-type = "text"
-path = "./data/documents/text"
-extensions = ["txt", "md"]
-
-[[sources]]
-type = "pdf"
-path = "./data/documents/pdf"
-
-[[sources]]
-type = "database"
-path = "./data/documents/database.db"
-tables = ["documents"]
-
-[[sources]]
-type = "spreadsheet"
-path = "./data/documents/spreadsheets"
-
-[[sources]]
-type = "web"
-path = "https://example.com"
-
-[[sources]]
-type = "media"
-path = "./data/documents/media"
-extensions = ["mp3", "mp4", "jpg"]
-
-[sources.audio]
-fields = ["title", "artist", "album"]
-
-[sources.video]
-use_ffprobe = true
-use_subtitle = true
-
-[sources.image]
-use_exif = true
-use_path_as_category = true
+auto_save_summary   = true
+summary_dir         = "./data/summaries"

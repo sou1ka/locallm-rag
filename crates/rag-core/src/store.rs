@@ -28,6 +28,12 @@ pub struct Store {
     chunks_path: PathBuf,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StoredChunk {
+    pub chunk: Chunk,
+    pub embedding: Vec<f32>,
+}
+
 impl Store {
     /// Create a new store (in-memory)
     pub fn new(
@@ -44,7 +50,28 @@ impl Store {
         })
     }
 
-    /// Load store from disk
+    pub fn save(&self) -> crate::Result<()> {
+        if let Some(parent) = self.chunks_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| crate::anyhow!("Failed to create directory: {}", e))?;
+        }
+
+        // embeddingとchunkを一緒に保存
+        let stored: Vec<StoredChunk> = self.chunks.iter().zip(self.embeddings.iter())
+            .map(|(chunk, embedding)| StoredChunk {
+                chunk: chunk.clone(),
+                embedding: embedding.clone(),
+            })
+            .collect();
+
+        let json = serde_json::to_string_pretty(&stored)
+            .map_err(|e| crate::anyhow!("Failed to serialize: {}", e))?;
+        std::fs::write(&self.chunks_path, json)
+            .map_err(|e| crate::anyhow!("Failed to write chunks file: {}", e))?;
+
+        Ok(())
+    }
+
     pub fn load(
         config: RagConfig,
         index_path: impl AsRef<Path>,
@@ -52,14 +79,16 @@ impl Store {
     ) -> crate::Result<Self> {
         let chunks_path_ref = chunks_path.as_ref();
 
-        // Load chunks JSON
         let json = std::fs::read_to_string(chunks_path_ref)
             .map_err(|e| crate::anyhow!("Failed to read chunks file: {}", e))?;
-        let chunks: Vec<Chunk> = serde_json::from_str(&json)
+
+        let stored: Vec<StoredChunk> = serde_json::from_str(&json)
             .map_err(|e| crate::anyhow!("Failed to parse chunks JSON: {}", e))?;
 
-        // Load embeddings (stored alongside chunks)
-        let embeddings = vec![vec![0.0; 310]; chunks.len()]; // Placeholder
+        let (chunks, embeddings): (Vec<Chunk>, Vec<Vec<f32>>) = stored
+            .into_iter()
+            .map(|s| (s.chunk, s.embedding))
+            .unzip();
 
         Ok(Self {
             chunks,
@@ -68,23 +97,6 @@ impl Store {
             index_path: index_path.as_ref().to_path_buf(),
             chunks_path: chunks_path_ref.to_path_buf(),
         })
-    }
-
-    /// Save store to disk
-    pub fn save(&self) -> crate::Result<()> {
-        // Create parent directories
-        if let Some(parent) = self.chunks_path.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| crate::anyhow!("Failed to create directory: {}", e))?;
-        }
-
-        // Save chunks as JSON
-        let json = serde_json::to_string_pretty(&self.chunks)
-            .map_err(|e| crate::anyhow!("Failed to serialize chunks: {}", e))?;
-        std::fs::write(&self.chunks_path, json)
-            .map_err(|e| crate::anyhow!("Failed to write chunks file: {}", e))?;
-
-        Ok(())
     }
 
     /// Add a chunk with its embedding

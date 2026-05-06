@@ -37,8 +37,12 @@ id3 = "1"
 mp4ameta = "0.13"
 kamadak-exif = "0.5"
 
+# Video metadata
+ffprobe = "0.4.0"
+
 # Text processing & NLP
 lindera = "0.40"          # Japanese morphological analysis for chunk splitting
+#lindera = { version = "0.40", features = ["ipadic"] }  # Japanese morphological analysis for chunk splitting
 lindera-ipadic = "0.40"   # 日本語辞書（IPAdic）
 
 # Async & concurrency

@@ -237,8 +237,8 @@ pub fn build_rag_prompt(
 
     // Add context window if not empty
     if !context.is_empty() {
-        let context_msg = format!("# Context\n\n{}", context);
-        messages.push(ChatMessage::system(context_msg));
+        let context_msg = format!("以下のコンテキストを参考に回答してください。\n\n{}", context);
+        messages.push(ChatMessage::user(context_msg));
     }
 
     // Add conversation history
@@ -286,9 +286,8 @@ mod tests {
 
         // Should have: system, context-system, user, assistant, user
         assert_eq!(messages.len(), 5);
-        assert_eq!(messages[0].role, MessageRole::System);
-        assert_eq!(messages[1].role, MessageRole::System);
-        assert!(messages[1].content.contains("Context"));
+        assert_eq!(messages[1].role, MessageRole::User);
+        assert!(messages[1].content.contains("コンテキスト"));
         assert_eq!(messages[2].role, MessageRole::User);
         assert_eq!(messages[3].role, MessageRole::Assistant);
         assert_eq!(messages[4].role, MessageRole::User);
