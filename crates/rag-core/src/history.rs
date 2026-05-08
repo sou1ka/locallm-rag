@@ -21,9 +21,13 @@ impl HistoryManager {
     }
 
     /// Save a conversation to JSON file
+    /// If a file already exists for this session_id, overwrites it in place.
+    /// Otherwise creates a new file using the current title as the filename.
     pub fn save(&self, conversation: &Conversation) -> Result<PathBuf> {
-        let filename = make_filename(conversation);
-        let path = self.history_dir.join(&filename);
+        let path = match self.find_path(&conversation.id) {
+            Some(existing) => existing,
+            None => self.history_dir.join(make_filename(conversation)),
+        };
 
         let json = serde_json::to_string_pretty(conversation)
             .map_err(|e| anyhow::anyhow!("Failed to serialize conversation: {}", e))?;

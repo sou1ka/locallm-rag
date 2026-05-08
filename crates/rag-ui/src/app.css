@@ -1,0 +1,20 @@
+/* スクロールバーのグローバル設定 */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3d3d5c;
+  border-radius: 2px;
+}
+
+/* 選択テキストの色 */
+::selection {
+  background: #4a90d9;
+  color: #fff;
+}

@@ -15,6 +15,7 @@ Cargo.lock
 /data/
 config.local.toml
 /models/
+/history/*
 
 # OS
 .DS_Store

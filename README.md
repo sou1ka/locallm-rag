@@ -10,8 +10,8 @@ A local RAG (Retrieval-Augmented Generation) engine for Ollama, built entirely i
 - **Japanese-Optimized Embeddings** (ruri-v3-310m via fastembed-rs)
 - **Multi-Format Document Ingestion** (PDF, text, images, audio, video, spreadsheets, SQLite, etc.)
 - **Intelligent OCR** (Tesseract via leptess) for scanned PDFs and images
-- **Conversation Management** with automatic history compression
-- **Monorepo Architecture** - CLI, daemon, and Tauri desktop app sharing a common engine
+- **Conversation Management** with automatic history compression and JSON persistence
+- **Monorepo Architecture** - CLI and Tauri desktop app sharing a common engine (rag-core)
 
 ## Project Structure
 
@@ -28,20 +28,35 @@ locallm-rag/
 │   │       ├── store.rs        # hnswlib-rs index + chunks.json persistence
 │   │       ├── retriever.rs    # Vector similarity search
 │   │       ├── llm.rs          # Ollama integration (async-openai)
-│   │       └── conversation.rs # History management & summarization
-│   ├── rag-cli/               # Command-line interface
-│   │   └── src/main.rs
-│   ├── rag-daemon/            # Background daemon (tarpc RPC server)
-│   │   └── src/main.rs
-│   └── rag-tauri/             # Desktop application
-│       ├── src-tauri/         # Tauri backend
+│   │       ├── conversation.rs # History management & summarization
+│   │       └── history.rs      # JSON-based conversation persistence
+│   ├── rag-cli/               # Command-line interface (uses rag-core directly)
+│   │   └── src/
+│   │       ├── main.rs
+│   │       └── commands/
+│   │           ├── chat.rs
+│   │           ├── ingest.rs
+│   │           ├── query.rs
+│   │           └── index.rs
+│   └── rag-ui/                # Desktop application (uses rag-core directly)
+│       ├── src-tauri/         # Tauri backend (Rust)
+│       │   └── src/
+│       │       ├── main.rs
+│       │       ├── commands.rs # Tauri commands
+│       │       └── state.rs    # AppState
 │       └── src/               # Svelte frontend
+│           ├── routes/
+│           └── lib/
+│               ├── components/ # Sidebar, ChatWindow, IngestPanel, MessageBubble
+│               ├── stores/     # Svelte stores (chat.js)
+│               └── tauri.js    # Tauri API wrappers
 ├── config.toml                # Configuration file
-└── data/
-    ├── index.bin              # HNSW index (binary)
-    ├── chunks.json            # Chunk metadata & content
-    ├── history.db             # SQLite conversation history
-    └── summaries/             # Markdown summaries of compressed conversations
+├── data/
+│   ├── index.bin              # HNSW index (binary)
+│   ├── chunks.json            # Chunk metadata & content
+│   └── summaries/             # Markdown summaries of compressed conversations
+└── history/                   # Conversation history (JSON, one file per session)
+    └── {YYYYMMDD_HHMMSS}_{title}.json
 ```
 
 ## Technology Stack
@@ -55,9 +70,8 @@ locallm-rag/
 | Embedding Model | ruri-v3-310m (ONNX) | Japanese-optimized, JMTEB top-tier |
 | OCR | leptess | Tesseract bindings, Japanese tessdata support |
 | LLM Client | async-openai | Ollama via OpenAI-compatible API |
-| Conversation DB | SQLite | rusqlite with bundled support |
+| Conversation History | JSON files | One file per session under `history/` |
 | File Formats | Multiple | PDF, CSV, Excel, text, markdown, HTML, SQLite, media files |
-| IPC | tarpc | Daemon ↔ CLI/Tauri communication |
 | File Watching | notify | Auto-ingest on file changes |
 | NLP | lindera | Japanese morphological analysis for chunking |
 | Frontend | Tauri + Svelte | Cross-platform desktop app |
@@ -67,12 +81,13 @@ locallm-rag/
 ### Prerequisites
 
 - **Rust 1.70+** and Cargo
+- **Node.js** and yarn (for rag-ui frontend)
 - **Ollama** running locally (`http://localhost:11434`)
 - Optional: Tesseract-OCR installed for PDF/image OCR support
   ```bash
   # Ubuntu/Debian
   sudo apt-get install tesseract-ocr tesseract-ocr-jpn
-  
+
   # macOS
   brew install tesseract tesseract-lang
   ```
@@ -138,23 +153,18 @@ cargo run --release --bin rag-cli -- query "What is the setup process?"
 # Interactive chat
 cargo run --release --bin rag-cli -- chat
 
+# Resume a previous session
+cargo run --release --bin rag-cli -- chat --session 20260506_214349
+
 # View index statistics
 cargo run --release --bin rag-cli -- index stats
 ```
 
-#### Daemon + CLI
+#### Desktop App (rag-ui)
 ```bash
-# Start daemon in background
-cargo run --release --bin rag-daemon &
-
-# Use CLI (will connect to daemon)
-cargo run --release --bin rag-cli -- query "..."
-```
-
-#### Desktop App
-```bash
-cd crates/rag-tauri
-cargo tauri dev
+cd crates/rag-ui
+yarn install
+yarn tauri dev
 ```
 
 ## Core Features
@@ -176,67 +186,68 @@ Supports multiple file types:
 
 ### Vector Indexing
 
-- **Storage**: HNSW graph (binary `index.bin`) + metadata (`chunks.json`)
-- **In-Memory**: Index and model loaded once at daemon startup
+- **Storage**: HNSW graph (binary `data/index.bin`) + metadata (`data/chunks.json`)
+- **In-Memory**: Index and model loaded at startup
 - **No Server**: Embedded vector index, no external database needed
 - **Retrieval**: O(1) lookup from chunk ID
 
 ### Conversation Management
 
-- **SQLite History**: All messages persisted locally
-- **Auto-Summarization**: Compresses old messages to reduce context window
-- **Session Support**: Multiple independent conversations
-- **Markdown Exports**: Summaries saved as `.md` files
+- **JSON History**: Each session saved as `{YYYYMMDD_HHMMSS}_{title}.json` under `history/`
+- **Auto-Summarization**: Compresses old messages to reduce context window usage
+- **Session Support**: Multiple independent conversations, resumable by session ID
+- **Markdown Exports**: Summaries saved as `.md` files under `data/summaries/`
 
 ### Streaming Support
 
 - Real-time token streaming from Ollama
-- Event-based UI updates in Tauri app
+- Event-based UI updates in rag-ui (Tauri `stream_token` event)
 
 ## Implementation Status
 
 - [x] config.rs - Configuration parsing
 - [x] llm.rs - Ollama integration (async-openai)
-- [ ] embedder.rs - Embeddings with fastembed
-- [ ] store.rs - hnswlib-rs index persistence
-- [ ] chunker.rs - Text chunking with lindera
-- [ ] ingestor/* - Document ingestion
-- [ ] retriever.rs - Vector search
-- [ ] conversation.rs - History management
-- [ ] rag-daemon - RPC server
-- [ ] rag-cli - CLI commands
-- [ ] rag-tauri - Desktop UI
+- [x] embedder.rs - Embeddings with fastembed
+- [x] store.rs - hnswlib-rs index persistence
+- [x] chunker.rs - Text chunking with lindera
+- [x] ingestor/ - Document ingestion
+- [x] retriever.rs - Vector search
+- [x] conversation.rs - History management & summarization
+- [x] history.rs - JSON conversation persistence
+- [x] rag-cli - CLI commands (ingest / query / chat / index)
+- [x] rag-ui - Desktop UI (Tauri + Svelte)
+- [ ] rag-server - Optional OpenAI-compatible HTTP server for LAN sharing
 
 ## Architecture
 
 ### Process Model
 
+CLI and rag-ui both use rag-core directly (no daemon):
+
 ```
-┌──────────────┐        ┌──────────────────────┐
-│  Tauri App   │        │  CLI Tool            │
-│  (Frontend)  │        │                      │
-└──────────────┘        └──────────────────────┘
-       │                          │
-       └──────────┬───────────────┘
-                  │
-         Unix Domain Socket (tarpc)
-                  │
-       ┌──────────▼───────────┐
-       │   rag-daemon         │
-       ├──────────────────────┤
-       │ hnswlib-rs (memory)  │
-       │ fastembed (memory)   │
-       │ Ollama (HTTP)        │
-       └──────────────────────┘
+┌─────────────────────┐     ┌─────────────────────┐
+│  rag-ui             │     │  rag-cli            │
+│  (Tauri + Svelte)   │     │  (Terminal REPL)    │
+└─────────────────────┘     └─────────────────────┘
+           │                           │
+           └─────────────┬─────────────┘
+                         │ (direct library call)
+              ┌──────────▼──────────┐
+              │     rag-core        │
+              ├─────────────────────┤
+              │ hnswlib-rs (memory) │
+              │ fastembed (memory)  │
+              │ Ollama (HTTP)       │
+              └─────────────────────┘
 ```
 
 ### Query Flow
 
 1. User submits query
-2. Query is vectorized (fastembed + ruri-v3 prefix)
+2. Query is vectorized (fastembed + ruri-v3 `"クエリ: "` prefix)
 3. Top-K similar chunks retrieved from HNSW
 4. Context + history + query combined into prompt
-5. Prompt sent to Ollama via OpenAI API
+5. Prompt sent to Ollama via OpenAI-compatible API
 6. Response streamed back to UI
 
 ## Configuration Reference
@@ -247,29 +258,15 @@ See `config.toml` for full options. Key sections:
 - `[embedder]` - Model files, prefixes
 - `[ocr]` - Tesseract settings
 - `[llm]` - Ollama connection
-- `[conversation]` - History limits, summarization
-- `[daemon]` - Socket and PID paths
+- `[conversation]` - History limits, summarization, history/summary directories
 - `[[sources]]` - Document source definitions
 
 ## Limitations & Known Issues
 
 - Windows: Tesseract-OCR must be installed separately
 - Large documents: May exceed context window after chunking
-- Real-time sync: Index changes require daemon restart
-
-## Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
+- Concurrent access: Simultaneous ingest from CLI and rag-ui may cause index lock contention
 
 ## License
 
 MIT
-
-## Support
-
-- Issues: GitHub Issues
-- Discussions: GitHub Discussions
-- Documentation: See `idea.md` for detailed specification
