@@ -83,10 +83,10 @@
       <!-- サイドバーヘッダー -->
       <div class="sidebar-header">
         <button class="icon-btn" on:click={toggleSidebar} title="サイドバーを閉じる">
-          <img src="/src/img/close.svg" alt="◀" />
+          <img src="/img/close.svg" alt="◀" />
         </button>
         <button class="icon-btn" on:click={handleNewSession} title="新規会話">
-          <img src="/src/img/comment.svg" alt="✏" />
+          <img src="/img/comment.svg" alt="✏" />
         </button>
         <button
           class="icon-btn"
@@ -97,7 +97,7 @@
           }}
           title="インデックス"
         >
-          <img src="/src/img/folder.svg" alt="📂" />
+          <img src="/img/folder.svg" alt="📂" />
         </button>
       </div>
 
@@ -116,10 +116,10 @@
     <!-- サイドバー折り畳み時（アイコンのみ） -->
     <div class="sidebar-wrap closed">
       <button class="icon-btn" on:click={toggleSidebar} title="サイドバーを開く">
-        <img src="/src/img/menu.svg" alt="▶" />
+        <img src="/img/menu.svg" alt="▶" />
       </button>
       <button class="icon-btn" on:click={handleNewSession} title="新規会話">
-        <img src="/src/img/comment.svg" alt="✏" />
+        <img src="/img/comment.svg" alt="✏" />
       </button>
       <button
         class="icon-btn"
@@ -131,7 +131,7 @@
         }}
         title="インデックス"
       >
-        <img src="/src/img/folder.svg" alt="📂" />
+        <img src="/img/folder.svg" alt="📂" />
       </button>
     </div>
   {/if}

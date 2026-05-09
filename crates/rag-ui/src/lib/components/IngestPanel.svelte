@@ -94,7 +94,7 @@
 </script>
 
 <div class="ingest-panel">
-  <h3 class="panel-title"><img src="/src/img/folder.svg" alt="📂" /> インデックス</h3>
+  <h3 class="panel-title"><img src="/img/folder.svg" alt="📂" /> インデックス</h3>
 
   <!-- インデックス統計 -->
   <div class="stats-section">
@@ -145,7 +145,7 @@
         disabled={$isIngesting}
         title="ファイルを選択"
         >
-        <img src="/src/img/file.svg" alt="📄" />
+        <img src="/img/file.svg" alt="📄" />
         </button>
         <button
         class="browse-btn"
@@ -153,7 +153,7 @@
         disabled={$isIngesting}
         title="フォルダを選択"
         >
-        <img src="/src/img/folder.svg" alt="📂" />
+        <img src="/img/folder.svg" alt="📂" />
         </button>
     </div>
     </div>
@@ -179,7 +179,7 @@
         <span class="spinner">⟳</span>
         処理中...
     {:else}
-        <img src="/src/img/home.svg" alt="▶" /> インデックス実行
+        <img src="/img/home.svg" alt="▶" /> インデックス実行
     {/if}
     </button>
   </div>
@@ -216,7 +216,7 @@
         on:click={handleReset}
         disabled={$isIngesting || $indexStats.total_chunks === 0}
       >
-        <img src="/src/img/break.svg" alt="🗑" /> インデックスをリセット
+        <img src="/img/break.svg" alt="🗑" /> インデックスをリセット
       </button>
     {/if}
   </div>

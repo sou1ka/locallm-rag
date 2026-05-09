@@ -50,7 +50,7 @@
     {#if isUser}
       👤
     {:else}
-      <img src="/src/img/icon.png" alt="🤖" />
+      <img src="/img/icon.png" alt="🤖" />
     {/if}
   </div>
 
@@ -73,7 +73,7 @@
 </div>
 
 <style>
-  img[src="/src/img/icon.png"] {
+  img[src="/img/icon.png"] {
     width: 24px;
   }
 

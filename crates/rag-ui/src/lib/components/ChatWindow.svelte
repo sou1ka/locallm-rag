@@ -93,7 +93,7 @@
   <div class="messages-area" on:scroll={handleScroll}>
     {#if $messages.length === 0}
       <div class="welcome">
-        <div class="welcome-icon"><img src="/src/img/icon.png" alt="🤖" /></div>
+        <div class="welcome-icon"><img src="/img/icon.png" alt="🤖" /></div>
         <h2>LOCALLM_RAG</h2>
         <p>ローカルLLM + RAGエンジン</p>
         <ul class="hints">
@@ -145,7 +145,7 @@
         {#if $isLoading}
           <span class="spinner">⟳</span>
         {:else}
-          <img src="/src/img/send.svg" alt="▶" />
+          <img src="/img/send.svg" alt="▶" />
         {/if}
       </button>
     </div>
@@ -153,7 +153,7 @@
 </div>
 
 <style>
-  img[src="/src/img/icon.png"] {
+  img[src="/img/icon.png"] {
     width: 64px;
   }
 
