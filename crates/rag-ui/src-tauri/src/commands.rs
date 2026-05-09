@@ -93,14 +93,17 @@ pub async fn ingest(
 
     let total_chunks = chunks.len();
 
+    // バッチEmbedding（ロックの外で実行）
+    let texts: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
+    let embeddings = embedder
+        .embed_documents(texts)
+        .map_err(|e| e.to_string())?;
+
     // Storeへの追加（ロックを取得して書き込み）
     {
         let mut inner = state.0.lock().unwrap();
-        for mut chunk in chunks {
+        for (mut chunk, embedding) in chunks.into_iter().zip(embeddings) {
             chunk.id = inner.store.len();
-            let embedding = embedder
-                .embed_document(&chunk.content)
-                .map_err(|e| e.to_string())?;
             inner
                 .store
                 .add_chunk(embedding, chunk)
@@ -144,23 +147,8 @@ pub async fn query(
             .embed_query(&text)
             .map_err(|e| e.to_string())?;
 
-        let store = {
-            let inner = state.0.lock().unwrap();
-            rag_core::store::Store::new(
-                config_rag.clone(),
-                &config_rag.index_path,
-                &config_rag.chunks_path,
-            )
-            .map_err(|e| e.to_string())?
-        };
-
-        // ストアを再ロードして検索
-        let store = rag_core::store::Store::load(
-            config_rag.clone(),
-            &config_rag.index_path,
-            &config_rag.chunks_path,
-        )
-        .map_err(|e| e.to_string())?;
+        let store = rag_core::store::Store::open(config_rag.clone(), &config_rag.db_path)
+            .map_err(|e| e.to_string())?;
 
         let retriever = Retriever::new(&store, config_rag);
         let results = retriever
@@ -215,19 +203,8 @@ pub async fn chat(
 
     // RAG検索
     let rag_results = if use_rag {
-        let store = rag_core::store::Store::load(
-            config_rag.clone(),
-            &config_rag.index_path,
-            &config_rag.chunks_path,
-        )
-        .unwrap_or_else(|_| {
-            rag_core::store::Store::new(
-                config_rag.clone(),
-                &config_rag.index_path,
-                &config_rag.chunks_path,
-            )
-            .unwrap()
-        });
+        let store = rag_core::store::Store::open(config_rag.clone(), &config_rag.db_path)
+            .unwrap_or_else(|e| panic!("Failed to open store: {}", e));
 
         if !store.is_empty() {
             let query_embedding = embedder
@@ -358,8 +335,7 @@ pub fn index_stats(state: State<'_, AppState>) -> IndexStats {
 #[tauri::command]
 pub fn reset_index(state: State<'_, AppState>) -> Result<(), String> {
     let mut inner = state.0.lock().unwrap();
-    inner.store.clear();
-    inner.store.save().map_err(|e| e.to_string())?;
+    inner.store.clear().map_err(|e| e.to_string())?;
     Ok(())
 }
 

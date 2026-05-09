@@ -102,7 +102,6 @@
   .empty-state {
     padding: 24px 16px;
     text-align: center;
-    color: #6b6b8d;
     font-size: 13px;
   }
 
@@ -121,17 +120,16 @@
     border-radius: 6px;
     margin: 2px 8px;
     transition: background 0.15s;
-    color: #c8c8e0;
   }
 
   .session-item:hover {
-    background: #2d2d4e;
+    background: #ccc;
   }
 
   .session-item.active {
-    background: #2d2d4e;
-    border-left: 3px solid #4a90d9;
-    color: #fff;
+    background: #222;
+    border-left: 3px solid #aaa;
+    color: #eee;
   }
 
   .session-info {
@@ -152,7 +150,7 @@
 
   .session-id {
     font-size: 11px;
-    color: #6b6b8d;
+    color: #aaa;
   }
 
   .delete-btn {
@@ -161,7 +159,7 @@
     height: 22px;
     padding: 0;
     background: transparent;
-    color: #6b6b8d;
+    color: #aaa;
     border: none;
     border-radius: 4px;
     font-size: 11px;
@@ -192,7 +190,7 @@
   }
 
   .session-list::-webkit-scrollbar-thumb {
-    background: #3d3d5c;
+    background: #222;
     border-radius: 2px;
   }
 </style>

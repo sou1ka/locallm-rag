@@ -93,7 +93,7 @@
   <div class="messages-area" on:scroll={handleScroll}>
     {#if $messages.length === 0}
       <div class="welcome">
-        <div class="welcome-icon">🤖</div>
+        <div class="welcome-icon"><img src="/src/img/icon.png" alt="🤖" /></div>
         <h2>LOCALLM_RAG</h2>
         <p>ローカルLLM + RAGエンジン</p>
         <ul class="hints">
@@ -145,7 +145,7 @@
         {#if $isLoading}
           <span class="spinner">⟳</span>
         {:else}
-          ▶
+          <img src="/src/img/send.svg" alt="▶" />
         {/if}
       </button>
     </div>
@@ -153,12 +153,14 @@
 </div>
 
 <style>
+  img[src="/src/img/icon.png"] {
+    width: 64px;
+  }
+
   .chat-window {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    background: #0f0f1a;
-    color: #e0e0f0;
     flex: 1;
     min-width: 0;
   }
@@ -169,22 +171,22 @@
     align-items: center;
     justify-content: space-between;
     padding: 10px 16px;
-    background: #1a1a2e;
-    border-bottom: 1px solid #2d2d4e;
     height: 48px;
     flex-shrink: 0;
+    border-bottom: 1px solid var(--text-color);
   }
 
   .toolbar-left {
     display: flex;
     align-items: center;
     gap: 8px;
+    background-color: #ccc;
+    border-radius: 3px;
+    font-weight: bold;
   }
 
   .session-badge {
     font-size: 12px;
-    color: #6b6b8d;
-    background: #2d2d4e;
     padding: 3px 8px;
     border-radius: 4px;
   }
@@ -205,7 +207,6 @@
     gap: 6px;
     cursor: pointer;
     font-size: 13px;
-    color: #c8c8e0;
     user-select: none;
   }
 
@@ -213,7 +214,6 @@
     width: 16px;
     height: 16px;
     cursor: pointer;
-    accent-color: #4a90d9;
   }
 
   /* メッセージエリア */
@@ -229,7 +229,6 @@
   }
 
   .messages-area::-webkit-scrollbar-thumb {
-    background: #3d3d5c;
     border-radius: 2px;
   }
 
@@ -242,19 +241,16 @@
     height: 100%;
     min-height: 400px;
     text-align: center;
-    color: #6b6b8d;
     padding: 40px;
   }
 
   .welcome-icon {
     font-size: 48px;
-    margin-bottom: 16px;
   }
 
   .welcome h2 {
     font-size: 24px;
     font-weight: 600;
-    color: #c8c8e0;
     margin: 0 0 8px;
   }
 
@@ -275,10 +271,10 @@
 
   .hints li {
     font-size: 13px;
-    background: #1a1a2e;
     padding: 8px 14px;
     border-radius: 8px;
-    border: 1px solid #2d2d4e;
+    border: 1px solid var(--text-color);
+    background-color: #eee;
     text-align: left;
   }
 
@@ -296,8 +292,7 @@
   /* 入力エリア */
   .input-area {
     padding: 12px 16px;
-    background: #1a1a2e;
-    border-top: 1px solid #2d2d4e;
+    border-top: 1px solid var(--text-color);
     flex-shrink: 0;
   }
 
@@ -305,15 +300,13 @@
     display: flex;
     align-items: flex-end;
     gap: 8px;
-    background: #2d2d4e;
-    border: 1px solid #3d3d5c;
+    border: 1px solid var(--text-color);
     border-radius: 12px;
     padding: 8px 12px;
     transition: border-color 0.2s;
   }
 
   .input-wrap:focus-within {
-    border-color: #4a90d9;
   }
 
   textarea {
@@ -321,7 +314,6 @@
     background: transparent;
     border: none;
     outline: none;
-    color: #e0e0f0;
     font-size: 14px;
     line-height: 1.5;
     resize: none;
@@ -332,7 +324,6 @@
   }
 
   textarea::placeholder {
-    color: #6b6b8d;
   }
 
   textarea:disabled {
@@ -344,8 +335,8 @@
     flex-shrink: 0;
     width: 34px;
     height: 34px;
-    background: #4a90d9;
-    color: #fff;
+    background: var(--bg-color);
+    filter: invert(100%);
     border: none;
     border-radius: 8px;
     font-size: 14px;
@@ -357,7 +348,6 @@
   }
 
   .send-btn:hover:not(:disabled) {
-    background: #357abd;
   }
 
   .send-btn:disabled {
@@ -373,5 +363,18 @@
   @keyframes spin {
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
+  }
+
+  .messages-area::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  .messages-area::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .messages-area::-webkit-scrollbar-thumb {
+    background: #222;
+    border-radius: 2px;
   }
 </style>

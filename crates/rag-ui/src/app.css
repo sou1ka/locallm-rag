@@ -9,12 +9,6 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3d3d5c;
+  background: #2c3530;
   border-radius: 2px;
-}
-
-/* 選択テキストの色 */
-::selection {
-  background: #4a90d9;
-  color: #fff;
 }

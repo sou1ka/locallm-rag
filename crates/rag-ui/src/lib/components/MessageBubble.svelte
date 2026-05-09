@@ -27,8 +27,8 @@
   function formatTime(dateStr) {
     if (!dateStr) return '';
     try {
-      const num = Number(dateStr);
-      const date = isNaN(num) ? new Date(dateStr) : new Date(num * 1000);
+      const num = Number(dateStr.replace(/\D/g, ''));
+      const date = isNaN(num) || num === 0 ? new Date(dateStr) : new Date(num * 1000);
       return date.toLocaleTimeString('ja-JP', {
         hour: '2-digit',
         minute: '2-digit',
@@ -50,7 +50,7 @@
     {#if isUser}
       👤
     {:else}
-      🤖
+      <img src="/src/img/icon.png" alt="🤖" />
     {/if}
   </div>
 
@@ -73,6 +73,10 @@
 </div>
 
 <style>
+  img[src="/src/img/icon.png"] {
+    width: 24px;
+  }
+
   .message-wrap {
     display: flex;
     align-items: flex-start;
@@ -102,11 +106,11 @@
   }
 
   .user-avatar {
-    background: #4a90d9;
+    background: #cdc;
   }
 
   .assistant-avatar {
-    background: #2d2d4e;
+    background: #383333;
   }
 
   .bubble {
@@ -119,14 +123,14 @@
   }
 
   .user-bubble {
-    background: #4a90d9;
-    color: #fff;
+    background: #ccc;
+    color: #111;
     border-bottom-right-radius: 4px;
   }
 
   .assistant-bubble {
-    background: #2d2d4e;
-    color: #e0e0f0;
+    background: #383333;
+    color: #f0e0e0;
     border-bottom-left-radius: 4px;
   }
 
@@ -136,8 +140,8 @@
 
   /* コードブロック */
   .content :global(pre) {
-    background: #0d0d1a;
-    border: 1px solid #3d3d5c;
+    background: #0d0d0d;
+    border: 1px solid #3d3d3c;
     border-radius: 6px;
     padding: 10px 12px;
     overflow-x: auto;

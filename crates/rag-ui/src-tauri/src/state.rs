@@ -12,7 +12,6 @@ use rag_core::{
     store::Store,
 };
 use std::collections::HashMap;
-use std::path::Path;
 use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 
@@ -49,14 +48,11 @@ impl AppConfig {
 
     /// 相対パスを base_dir 基準の絶対パスに変換
     fn resolve_paths(&mut self, base_dir: &std::path::Path) {
-        self.rag.index_path          = resolve(base_dir, &self.rag.index_path);
-        self.rag.chunks_path         = resolve(base_dir, &self.rag.chunks_path);
+        self.rag.db_path             = resolve(base_dir, &self.rag.db_path);
         self.embedder.onnx_path      = resolve(base_dir, &self.embedder.onnx_path);
         self.embedder.tokenizer_path = resolve(base_dir, &self.embedder.tokenizer_path);
-        self.conversation.summary_dir =
-            resolve(base_dir, &self.conversation.summary_dir);
-        self.conversation.history_dir =
-            resolve(base_dir, &self.conversation.history_dir);
+        self.conversation.summary_dir = resolve(base_dir, &self.conversation.summary_dir);
+        self.conversation.history_dir = resolve(base_dir, &self.conversation.history_dir);
     }
 }
 
@@ -85,24 +81,8 @@ impl AppStateInner {
         let embedder = Embedder::new(config.embedder.clone())
             .map_err(|e| anyhow::anyhow!("Failed to init embedder: {}", e))?;
 
-        let store = {
-            let chunks_path = &config.rag.chunks_path;
-            if Path::new(chunks_path).exists() {
-                Store::load(
-                    config.rag.clone(),
-                    &config.rag.index_path,
-                    chunks_path,
-                )
-                .map_err(|e| anyhow::anyhow!("Failed to load store: {}", e))?
-            } else {
-                Store::new(
-                    config.rag.clone(),
-                    &config.rag.index_path,
-                    chunks_path,
-                )
-                .map_err(|e| anyhow::anyhow!("Failed to create store: {}", e))?
-            }
-        };
+        let store = Store::open(config.rag.clone(), &config.rag.db_path)
+            .map_err(|e| anyhow::anyhow!("Failed to open store: {}", e))?;
 
         let chunker = ChunkSplitter::new(config.rag.clone())
             .map_err(|e| anyhow::anyhow!("Failed to init chunker: {}", e))?;

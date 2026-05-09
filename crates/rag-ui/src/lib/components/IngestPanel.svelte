@@ -94,7 +94,7 @@
 </script>
 
 <div class="ingest-panel">
-  <h3 class="panel-title">📂 インデックス</h3>
+  <h3 class="panel-title"><img src="/src/img/folder.svg" alt="📂" /> インデックス</h3>
 
   <!-- インデックス統計 -->
   <div class="stats-section">
@@ -145,7 +145,7 @@
         disabled={$isIngesting}
         title="ファイルを選択"
         >
-        📄
+        <img src="/src/img/file.svg" alt="📄" />
         </button>
         <button
         class="browse-btn"
@@ -153,7 +153,7 @@
         disabled={$isIngesting}
         title="フォルダを選択"
         >
-        📁
+        <img src="/src/img/folder.svg" alt="📂" />
         </button>
     </div>
     </div>
@@ -179,7 +179,7 @@
         <span class="spinner">⟳</span>
         処理中...
     {:else}
-        ▶ インデックス実行
+        <img src="/src/img/home.svg" alt="▶" /> インデックス実行
     {/if}
     </button>
   </div>
@@ -216,7 +216,7 @@
         on:click={handleReset}
         disabled={$isIngesting || $indexStats.total_chunks === 0}
       >
-        🗑 インデックスをリセット
+        <img src="/src/img/break.svg" alt="🗑" /> インデックスをリセット
       </button>
     {/if}
   </div>
@@ -225,20 +225,18 @@
 <style>
   .ingest-panel {
     padding: 16px;
-    color: #c8c8e0;
     font-size: 13px;
   }
 
   .panel-title {
     font-size: 14px;
     font-weight: 600;
-    color: #e0e0f0;
     margin: 0 0 12px;
   }
 
   /* 統計 */
   .stats-section {
-    background: #2d2d4e;
+    background: #ddd;
     border-radius: 8px;
     padding: 10px 12px;
     margin-bottom: 12px;
@@ -252,14 +250,12 @@
   }
 
   .stat-label {
-    color: #6b6b8d;
     font-size: 12px;
   }
 
   .stat-value {
     font-size: 18px;
     font-weight: 700;
-    color: #4a90d9;
   }
 
   .source-breakdown {
@@ -277,7 +273,6 @@
   .source-type {
     width: 72px;
     font-size: 11px;
-    color: #8888aa;
     text-align: right;
     flex-shrink: 0;
   }
@@ -285,14 +280,14 @@
   .source-bar-wrap {
     flex: 1;
     height: 6px;
-    background: #1a1a2e;
+    background: #999;
     border-radius: 3px;
     overflow: hidden;
   }
 
   .source-bar {
     height: 100%;
-    background: #4a90d9;
+    background: #555;
     border-radius: 3px;
     min-width: 4px;
     transition: width 0.3s;
@@ -301,14 +296,13 @@
   .source-count {
     width: 30px;
     font-size: 11px;
-    color: #6b6b8d;
     text-align: right;
     flex-shrink: 0;
   }
 
   .divider {
     height: 1px;
-    background: #2d2d4e;
+    background: var(--text-color);
     margin: 12px 0;
   }
 
@@ -321,16 +315,13 @@
 
   .form-label {
     font-size: 11px;
-    color: #6b6b8d;
   }
 
   .form-input {
     width: 100%;
     padding: 7px 10px;
-    background: #2d2d4e;
-    border: 1px solid #3d3d5c;
+    border: 1px solid var(--text-color);
     border-radius: 6px;
-    color: #e0e0f0;
     font-size: 12px;
     outline: none;
     box-sizing: border-box;
@@ -338,7 +329,7 @@
   }
 
   .form-input:focus {
-    border-color: #4a90d9;
+
   }
 
   .form-input:disabled {
@@ -347,14 +338,14 @@
   }
 
   .form-input::placeholder {
-    color: #4a4a6a;
+    color: #999;
   }
 
   .ingest-btn {
     margin-top: 4px;
     padding: 8px 14px;
-    background: #4a90d9;
-    color: #fff;
+    background: #aaa;
+    color: var(--text-color);
     border: none;
     border-radius: 6px;
     font-size: 13px;
@@ -367,7 +358,7 @@
   }
 
   .ingest-btn:hover:not(:disabled) {
-    background: #357abd;
+    background: #ccc;
   }
 
   .ingest-btn:disabled {
@@ -450,8 +441,8 @@
   }
 
   .confirm-btn.cancel {
-    background: #2d2d4e;
-    color: #c8c8e0;
+    background: #212926;
+    color: #b8b8b8;
   }
 
   .confirm-btn:hover {
@@ -488,10 +479,11 @@
     .browse-btn {
         width: 30px;
         height: 30px;
-        background: #2d2d4e;
-        border: 1px solid #3d3d5c;
+        background: var(--bg-color);
+        border: 1px solid var(--text-color);
         border-radius: 6px;
-        color: #c8c8e0;
+        color: var(--bg-color);
+        filter: invert(100%);
         font-size: 14px;
         cursor: pointer;
         display: flex;
@@ -502,7 +494,7 @@
     }
 
     .browse-btn:hover:not(:disabled) {
-        background: #3d3d5c;
+        background: #999;
     }
 
     .browse-btn:disabled {
