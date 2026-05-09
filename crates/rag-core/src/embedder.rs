@@ -117,7 +117,7 @@ impl Embedder {
             return Ok(Vec::new());
         }
         self.model
-            .embed(texts.to_vec(), None)
+            .embed(texts.to_vec(), Some(self.config.embed_batch_size))
             .map_err(|e| crate::anyhow!("Batch embedding failed: {}", e))
     }
 

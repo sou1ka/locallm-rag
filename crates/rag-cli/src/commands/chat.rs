@@ -15,7 +15,6 @@ use rag_core::{
     store::Store,
 };
 use std::io::{self, BufRead, Write};
-use std::path::Path;
 
 /// Run the chat command
 pub async fn run(
@@ -313,24 +312,9 @@ fn new_session_id() -> String {
     current_datetime()
 }
 
-/// Store のロード
 fn load_store(config: &Config) -> Result<Store> {
-    let chunks_path = &config.rag.chunks_path;
-    if Path::new(chunks_path).exists() {
-        Store::load(
-            config.rag.clone(),
-            &config.rag.index_path,
-            chunks_path,
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to load store: {}", e))
-    } else {
-        Store::new(
-            config.rag.clone(),
-            &config.rag.index_path,
-            chunks_path,
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create store: {}", e))
-    }
+    Store::open(config.rag.clone(), &config.rag.db_path)
+        .map_err(|e| anyhow::anyhow!("Failed to open store: {}", e))
 }
 
 /// ヘルプ表示

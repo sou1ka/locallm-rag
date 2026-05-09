@@ -91,11 +91,9 @@ impl<'a> Retriever<'a> {
 mod tests {
     use super::*;
 
-    // テスト内の create_test_config() を修正
     fn create_test_config() -> RagConfig {
         RagConfig {
-            index_path: "./data/index.bin".to_string(),
-            chunks_path: "./data/chunks.json".to_string(),
+            db_path: ":memory:".to_string(),
             chunk_size: 512,
             chunk_overlap: 128,
             top_k: 5,
@@ -122,7 +120,7 @@ mod tests {
     #[test]
     fn test_retriever_creation() {
         let config = create_test_config();
-        let store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let store = Store::open(config.clone(), ":memory:")
             .unwrap();
         let retriever = Retriever::new(&store, config);
 
@@ -133,7 +131,7 @@ mod tests {
     #[test]
     fn test_retrieve_empty_store() {
         let config = create_test_config();
-        let store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let store = Store::open(config.clone(), ":memory:")
             .unwrap();
         let retriever = Retriever::new(&store, config);
 
@@ -146,7 +144,7 @@ mod tests {
     #[test]
     fn test_retrieve_single_chunk() {
         let config = create_test_config();
-        let mut store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let mut store = Store::open(config.clone(), ":memory:")
             .unwrap();
 
         let chunk = create_test_chunk(0);
@@ -163,7 +161,7 @@ mod tests {
     #[test]
     fn test_retrieve_multiple_chunks() {
         let config = create_test_config();
-        let mut store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let mut store = Store::open(config.clone(), ":memory:")
             .unwrap();
 
         let embedding = create_test_embedding();
@@ -184,7 +182,7 @@ mod tests {
         let mut config = create_test_config();
         config.score_threshold = 0.99; // Very high threshold
 
-        let mut store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let mut store = Store::open(config.clone(), ":memory:")
             .unwrap();
 
         let embedding = create_test_embedding();
@@ -203,7 +201,7 @@ mod tests {
         let mut config = create_test_config();
         config.top_k = 2;
 
-        let mut store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let mut store = Store::open(config.clone(), ":memory:")
             .unwrap();
 
         let embedding = create_test_embedding();
@@ -221,7 +219,7 @@ mod tests {
     #[test]
     fn test_get_chunk() {
         let config = create_test_config();
-        let mut store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let mut store = Store::open(config.clone(), ":memory:")
             .unwrap();
 
         let chunk = create_test_chunk(0);
@@ -238,7 +236,7 @@ mod tests {
     #[test]
     fn test_all_chunks() {
         let config = create_test_config();
-        let mut store = Store::new(config.clone(), "./data/index.bin", "./data/chunks.json")
+        let mut store = Store::open(config.clone(), ":memory:")
             .unwrap();
 
         let embedding = create_test_embedding();

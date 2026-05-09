@@ -17,8 +17,9 @@ pub fn load(path: &Path, splitter: &ChunkSplitter) -> crate::Result<Vec<Chunk>> 
         .unwrap_or("")
         .to_lowercase();
 
-    let raw = std::fs::read_to_string(path)
+    let bytes = std::fs::read(path)
         .map_err(|e| crate::anyhow!("Failed to read {}: {}", path.display(), e))?;
+    let raw = crate::ingestor::decode_to_utf8(&bytes);
 
     let text = match ext.as_str() {
         "html" | "htm" => extract_html(&raw),

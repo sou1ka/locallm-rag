@@ -138,23 +138,7 @@ pub async fn run(
     Ok(())
 }
 
-/// Store のロードまたは空のStore を返す
 fn load_store(config: &Config) -> Result<Store> {
-    let chunks_path = &config.rag.chunks_path;
-
-    if Path::new(chunks_path).exists() {
-        Store::load(
-            config.rag.clone(),
-            &config.rag.index_path,
-            chunks_path,
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to load store: {}", e))
-    } else {
-        Store::new(
-            config.rag.clone(),
-            &config.rag.index_path,
-            chunks_path,
-        )
-        .map_err(|e| anyhow::anyhow!("Failed to create store: {}", e))
-    }
+    Store::open(config.rag.clone(), &config.rag.db_path)
+        .map_err(|e| anyhow::anyhow!("Failed to open store: {}", e))
 }

@@ -69,12 +69,10 @@ pub fn load(path: &str) -> Result<Config> {
 
 impl Config {
     fn resolve_paths(&mut self, base_dir: &std::path::Path) {
-        self.rag.index_path  = resolve(base_dir, &self.rag.index_path);
-        self.rag.chunks_path = resolve(base_dir, &self.rag.chunks_path);
+        self.rag.db_path             = resolve(base_dir, &self.rag.db_path);
         self.embedder.onnx_path      = resolve(base_dir, &self.embedder.onnx_path);
         self.embedder.tokenizer_path = resolve(base_dir, &self.embedder.tokenizer_path);
-        self.conversation.summary_dir =
-            resolve(base_dir, &self.conversation.summary_dir);
+        self.conversation.summary_dir = resolve(base_dir, &self.conversation.summary_dir);
     }
 }
 

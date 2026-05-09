@@ -125,14 +125,22 @@ pub fn source_type_from_ext(ext: &str) -> &'static str {
     }
 }
 
-/// 現在時刻をISO8601文字列で返す
+/// 現在時刻をUnixタイムスタンプ文字列で返す
 pub fn now_iso8601() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
-    let secs = SystemTime::now()
+    SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
-        .as_secs();
-    // chrono非依存のシンプル実装
-    // 必要ならchronoクレートに差し替え可
-    format!("{}Z", secs)
+        .as_secs()
+        .to_string()
+}
+
+/// ファイルバイト列を UTF-8 文字列にデコード（ShiftJIS フォールバック対応）
+pub fn decode_to_utf8(bytes: &[u8]) -> String {
+    let stripped = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
+    if std::str::from_utf8(stripped).is_ok() {
+        return String::from_utf8_lossy(stripped).into_owned();
+    }
+    let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(bytes);
+    decoded.into_owned()
 }

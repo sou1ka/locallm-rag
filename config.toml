@@ -1,17 +1,17 @@
 [rag]
-index_path      = "./data/index.bin"
-chunks_path     = "./data/chunks.json"
+db_path         = "./data/store.db"
 chunk_size      = 500
 chunk_overlap   = 50
 top_k           = 5
 score_threshold = 0.3
 
 [embedder]
-model_type      = "custom_onnx"
-onnx_path       = "./models/ruri-v3-310m/model.onnx"
-tokenizer_path  = "./models/ruri-v3-310m/tokenizer.json"
-doc_prefix      = "文章: "
-query_prefix    = "クエリ: "
+model_type        = "custom_onnx"
+onnx_path         = "./models/ruri-v3-310m/model.onnx"
+tokenizer_path    = "./models/ruri-v3-310m/tokenizer.json"
+doc_prefix        = "文章: "
+query_prefix      = "クエリ: "
+embed_batch_size  = 128
 
 [llm]
 base_url = "http://localhost:18888/v1"

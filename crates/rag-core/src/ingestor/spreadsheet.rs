@@ -52,7 +52,7 @@ pub fn ingest_csv(path: &Path) -> crate::Result<String> {
     let bytes = std::fs::read(path)
         .map_err(|e| crate::anyhow!("Failed to read CSV file {}: {}", path.display(), e))?;
 
-    let content = decode_to_utf8(&bytes);
+    let content = crate::ingestor::decode_to_utf8(&bytes);
 
     let mut reader = csv::Reader::from_reader(content.as_bytes());
     let mut output = String::new();
@@ -68,20 +68,6 @@ pub fn ingest_csv(path: &Path) -> crate::Result<String> {
     Ok(output.trim().to_string())
 }
 
-/// バイト列を UTF-8 文字列に変換する。
-/// UTF-8（BOM 付き含む）→ ShiftJIS（CP932）の順でフォールバックする。
-fn decode_to_utf8(bytes: &[u8]) -> String {
-    // UTF-8 BOM を除去してから試す
-    let stripped = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
-
-    if std::str::from_utf8(stripped).is_ok() {
-        return String::from_utf8_lossy(stripped).into_owned();
-    }
-
-    // ShiftJIS (CP932) にフォールバック
-    let (decoded, _, _) = encoding_rs::SHIFT_JIS.decode(bytes);
-    decoded.into_owned()
-}
 
 /// Ingest an Excel file (.xlsx, .xls, .ods)
 ///
@@ -160,7 +146,7 @@ mod tests {
     #[test]
     fn test_decode_utf8() {
         let input = "名前,年齢\n山田,30\n".as_bytes().to_vec();
-        let result = decode_to_utf8(&input);
+        let result = crate::ingestor::decode_to_utf8(&input);
         assert!(result.contains("名前"));
     }
 
@@ -168,7 +154,7 @@ mod tests {
     fn test_decode_utf8_bom() {
         let mut input = b"\xEF\xBB\xBF".to_vec();
         input.extend_from_slice("名前,年齢\n".as_bytes());
-        let result = decode_to_utf8(&input);
+        let result = crate::ingestor::decode_to_utf8(&input);
         // BOM が除去されて正しくデコードされる
         assert!(result.starts_with("名前"));
     }
@@ -177,7 +163,7 @@ mod tests {
     fn test_decode_shiftjis() {
         // "名前" の ShiftJIS バイト列
         let shiftjis: Vec<u8> = vec![0x96, 0xBC, 0x91, 0x4F];
-        let result = decode_to_utf8(&shiftjis);
+        let result = crate::ingestor::decode_to_utf8(&shiftjis);
         assert!(!result.is_empty());
     }
 

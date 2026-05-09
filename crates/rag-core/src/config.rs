@@ -20,8 +20,7 @@ pub struct Config {
 /// RAG engine specific settings
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RagConfig {
-    pub index_path: String,
-    pub chunks_path: String,
+    pub db_path: String,
     pub chunk_size: usize,
     pub chunk_overlap: usize,
     pub top_k: usize,
@@ -36,6 +35,12 @@ pub struct EmbedderConfig {
     pub tokenizer_path: String,
     pub doc_prefix: String,
     pub query_prefix: String,
+    #[serde(default = "default_embed_batch_size")]
+    pub embed_batch_size: usize,
+}
+
+fn default_embed_batch_size() -> usize {
+    128
 }
 
 /// OCR settings
@@ -143,8 +148,7 @@ impl Config {
     pub fn default_for_testing() -> Self {
         Self {
             rag: RagConfig {
-                index_path: "./data/index.bin".to_string(),
-                chunks_path: "./data/chunks.json".to_string(),
+                db_path: "./data/store.db".to_string(),
                 chunk_size: 512,
                 chunk_overlap: 128,
                 top_k: 5,
@@ -156,6 +160,7 @@ impl Config {
                 tokenizer_path: "./models/tokenizer.json".to_string(),
                 doc_prefix: "文章: ".to_string(),
                 query_prefix: "クエリ: ".to_string(),
+                embed_batch_size: 128,
             },
             ocr: OcrConfig {
                 enabled: true,
@@ -274,7 +279,7 @@ impl Config {
 
     /// Get absolute path for database
     pub fn get_db_path(&self) -> PathBuf {
-        Self::expand_path(&self.rag.index_path)
+        Self::expand_path(&self.rag.db_path)
     }
 
     /// Get absolute path for summaries directory

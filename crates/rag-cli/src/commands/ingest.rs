@@ -81,9 +81,8 @@ async fn ingest_once(
     }
 
     spinner.set_message(format!("Embedding {} chunks...", chunks.len()));
-
-    // プログレスバーに切り替え
     spinner.finish_and_clear();
+
     let pb = ProgressBar::new(chunks.len() as u64);
     pb.set_style(
         ProgressStyle::default_bar()
@@ -92,24 +91,21 @@ async fn ingest_once(
             .progress_chars("█░"),
     );
 
-    // Embedding → Store追加
+    // バッチEmbedding → Store追加
     let mut files_processed = std::collections::HashSet::new();
-    let mut skipped = 0usize;
+    let skipped = 0usize;
 
-    for mut chunk in chunks {
-        // IDを採番
+    let texts: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
+    let embeddings = embedder
+        .embed_documents(texts)
+        .map_err(|e| anyhow::anyhow!("Embedding failed: {}", e))?;
+
+    for (mut chunk, embedding) in chunks.into_iter().zip(embeddings) {
         chunk.id = store.len();
-
-        // Embedding生成
-        let embedding = embedder
-            .embed_document(&chunk.content)
-            .map_err(|e| anyhow::anyhow!("Embedding failed: {}", e))?;
-
         files_processed.insert(chunk.file_path.clone());
         store
             .add_chunk(embedding, chunk)
             .map_err(|e| anyhow::anyhow!("Store error: {}", e))?;
-
         pb.inc(1);
     }
 
@@ -183,18 +179,9 @@ async fn watch_mode(
     }
 }
 
-/// Storeのロードまたは新規作成
 fn load_or_create_store(config: &Config) -> Result<Store> {
-    let index_path = &config.rag.index_path;
-    let chunks_path = &config.rag.chunks_path;
-
-    if Path::new(chunks_path).exists() {
-        Store::load(config.rag.clone(), index_path, chunks_path)
-            .map_err(|e| anyhow::anyhow!("Failed to load store: {}", e))
-    } else {
-        Store::new(config.rag.clone(), index_path, chunks_path)
-            .map_err(|e| anyhow::anyhow!("Failed to create store: {}", e))
-    }
+    Store::open(config.rag.clone(), &config.rag.db_path)
+        .map_err(|e| anyhow::anyhow!("Failed to open store: {}", e))
 }
 
 /// インジェスト結果の表示
