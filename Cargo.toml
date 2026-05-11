@@ -3,6 +3,7 @@ members = [
     "crates/rag-core",
     "crates/rag-cli",
     "crates/rag-ui/src-tauri",
+    "crates/rag-server",
 ]
 resolver = "2"
 

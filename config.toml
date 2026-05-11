@@ -24,3 +24,8 @@ summary_keep_recent = 5
 auto_save_summary   = true
 summary_dir         = "./data/summaries"
 history_dir         = "./history"
+
+[server]
+host    = "127.0.0.1"
+port    = 18080
+api_key = ""           # Bearer token; leave empty to disable auth
