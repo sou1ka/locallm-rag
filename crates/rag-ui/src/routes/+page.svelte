@@ -3,10 +3,11 @@
   import Sidebar from '$lib/components/Sidebar.svelte';
   import ChatWindow from '$lib/components/ChatWindow.svelte';
   import IngestPanel from '$lib/components/IngestPanel.svelte';
-  import { appWindow } from '@tauri-apps/api/window';
-  import { open } from '@tauri-apps/api/shell';
+  import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
+  import { open } from '@tauri-apps/plugin-shell';
   import { onMount } from 'svelte';
   import { refreshIndexStats, newSession, saveAllSessions } from '$lib/stores/chat.js';
+  const appWindow = getCurrentWebviewWindow()
 
   // localStorageから初期値を復元
   let sidebarOpen = typeof localStorage !== 'undefined'

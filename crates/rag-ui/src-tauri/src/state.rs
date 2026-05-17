@@ -5,15 +5,12 @@
 
 use anyhow::Result;
 use rag_core::{
-    chunker::ChunkSplitter,
-    conversation::Conversation,
-    embedder::Embedder,
-    llm::LlmClient,
+    chunker::ChunkSplitter, conversation::Conversation, embedder::Embedder, llm::LlmClient,
     store::Store,
 };
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Mutex;
-use serde::{Deserialize, Serialize};
 
 /// Configuration for the UI app
 /// Mirrors rag-cli config but owned by Tauri state
@@ -48,8 +45,8 @@ impl AppConfig {
 
     /// 相対パスを base_dir 基準の絶対パスに変換
     fn resolve_paths(&mut self, base_dir: &std::path::Path) {
-        self.rag.db_path             = resolve(base_dir, &self.rag.db_path);
-        self.embedder.onnx_path      = resolve(base_dir, &self.embedder.onnx_path);
+        self.rag.db_path = resolve(base_dir, &self.rag.db_path);
+        self.embedder.onnx_path = resolve(base_dir, &self.embedder.onnx_path);
         self.embedder.tokenizer_path = resolve(base_dir, &self.embedder.tokenizer_path);
         self.conversation.summary_dir = resolve(base_dir, &self.conversation.summary_dir);
         self.conversation.history_dir = resolve(base_dir, &self.conversation.history_dir);

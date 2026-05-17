@@ -2,7 +2,7 @@
 <!-- File ingestion panel for adding documents to the RAG index -->
 
 <script>
-  import { open } from '@tauri-apps/api/dialog';
+  import { open } from '@tauri-apps/plugin-dialog';
   import {
     isIngesting,
     indexStats,

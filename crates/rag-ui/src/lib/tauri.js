@@ -2,7 +2,7 @@
 // Tauri command wrappers for rag-ui
 // All backend communication goes through this module.
 
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 
 /**

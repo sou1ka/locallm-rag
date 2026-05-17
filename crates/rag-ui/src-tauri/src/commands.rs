@@ -9,7 +9,7 @@ use rag_core::{
     retriever::Retriever,
 };
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State};
+use tauri::{Manager, State, Emitter};
 
 /// Ingest stats returned to frontend
 #[derive(Debug, Serialize)]
@@ -67,22 +67,16 @@ pub async fn ingest(
     };
 
     // インジェスト処理（ロックの外で実行）
-    let chunker = rag_core::chunker::ChunkSplitter::new(config_rag.clone())
-        .map_err(|e| e.to_string())?;
+    let chunker =
+        rag_core::chunker::ChunkSplitter::new(config_rag.clone()).map_err(|e| e.to_string())?;
 
-    let embedder = rag_core::embedder::Embedder::new(config_embedder)
-        .map_err(|e| e.to_string())?;
+    let embedder = rag_core::embedder::Embedder::new(config_embedder).map_err(|e| e.to_string())?;
 
     let chunks = if target.is_dir() {
-        rag_core::ingestor::ingest_directory(
-            target,
-            extensions.as_deref(),
-            &config_rag,
-        )
-        .map_err(|e| e.to_string())?
-    } else {
-        rag_core::ingestor::ingest_file(target, &config_rag)
+        rag_core::ingestor::ingest_directory(target, extensions.as_deref(), &config_rag)
             .map_err(|e| e.to_string())?
+    } else {
+        rag_core::ingestor::ingest_file(target, &config_rag).map_err(|e| e.to_string())?
     };
 
     let files_processed = chunks
@@ -95,9 +89,7 @@ pub async fn ingest(
 
     // バッチEmbedding（ロックの外で実行）
     let texts: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
-    let embeddings = embedder
-        .embed_documents(texts)
-        .map_err(|e| e.to_string())?;
+    let embeddings = embedder.embed_documents(texts).map_err(|e| e.to_string())?;
 
     // Storeへの追加（ロックを取得して書き込み）
     {
@@ -135,17 +127,13 @@ pub async fn query(
         )
     };
 
-    let embedder = rag_core::embedder::Embedder::new(config_embedder)
-        .map_err(|e| e.to_string())?;
+    let embedder = rag_core::embedder::Embedder::new(config_embedder).map_err(|e| e.to_string())?;
 
-    let llm = rag_core::llm::LlmClient::new(config_llm)
-        .map_err(|e| e.to_string())?;
+    let llm = rag_core::llm::LlmClient::new(config_llm).map_err(|e| e.to_string())?;
 
     // RAG検索
     let context = if use_rag && !store_snapshot.is_empty() {
-        let query_embedding = embedder
-            .embed_query(&text)
-            .map_err(|e| e.to_string())?;
+        let query_embedding = embedder.embed_query(&text).map_err(|e| e.to_string())?;
 
         let store = rag_core::store::Store::open(config_rag.clone(), &config_rag.db_path)
             .map_err(|e| e.to_string())?;
@@ -195,11 +183,9 @@ pub async fn chat(
         )
     };
 
-    let embedder = rag_core::embedder::Embedder::new(config_embedder)
-        .map_err(|e| e.to_string())?;
+    let embedder = rag_core::embedder::Embedder::new(config_embedder).map_err(|e| e.to_string())?;
 
-    let llm = rag_core::llm::LlmClient::new(config_llm)
-        .map_err(|e| e.to_string())?;
+    let llm = rag_core::llm::LlmClient::new(config_llm).map_err(|e| e.to_string())?;
 
     // RAG検索
     let rag_results = if use_rag {
@@ -207,9 +193,7 @@ pub async fn chat(
             .unwrap_or_else(|e| panic!("Failed to open store: {}", e));
 
         if !store.is_empty() {
-            let query_embedding = embedder
-                .embed_query(&message)
-                .map_err(|e| e.to_string())?;
+            let query_embedding = embedder.embed_query(&message).map_err(|e| e.to_string())?;
             let retriever = Retriever::new(&store, config_rag);
             retriever
                 .retrieve(&query_embedding)
@@ -224,9 +208,7 @@ pub async fn chat(
     // セッション取得
     let conversation = {
         let mut inner = state.0.lock().unwrap();
-        inner
-            .get_or_create_session(&session_id)
-            .clone()
+        inner.get_or_create_session(&session_id).clone()
     };
 
     let mut manager = ConversationManager::new(conversation, config_conv, llm);
@@ -242,7 +224,7 @@ pub async fn chat(
             rag_core::llm::default_system_prompt(),
             move |token| {
                 app_handle_clone
-                    .emit_all(
+                    .emit(
                         "stream_token",
                         StreamPayload {
                             session_id: session_id_clone.clone(),
@@ -283,10 +265,7 @@ pub fn list_sessions(state: State<'_, AppState>) -> Vec<SessionInfo> {
 
 /// Get messages for a session
 #[tauri::command]
-pub fn get_messages(
-    session_id: String,
-    state: State<'_, AppState>,
-) -> Vec<MessageInfo> {
+pub fn get_messages(session_id: String, state: State<'_, AppState>) -> Vec<MessageInfo> {
     let inner = state.0.lock().unwrap();
     match inner.sessions.get(&session_id) {
         Some(conv) => conv
@@ -304,10 +283,7 @@ pub fn get_messages(
 
 /// Delete a session
 #[tauri::command]
-pub fn delete_session(
-    session_id: String,
-    state: State<'_, AppState>,
-) -> bool {
+pub fn delete_session(session_id: String, state: State<'_, AppState>) -> bool {
     let mut inner = state.0.lock().unwrap();
     inner.delete_session(&session_id)
 }
@@ -316,13 +292,11 @@ pub fn delete_session(
 #[tauri::command]
 pub fn index_stats(state: State<'_, AppState>) -> IndexStats {
     let inner = state.0.lock().unwrap();
-    let mut by_type: std::collections::HashMap<String, usize> =
-        std::collections::HashMap::new();
+    let mut by_type: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
     for chunk in inner.store.chunks() {
         *by_type.entry(chunk.source_type.clone()).or_insert(0) += 1;
     }
-    let mut by_source_type: Vec<(String, usize)> =
-        by_type.into_iter().collect();
+    let mut by_source_type: Vec<(String, usize)> = by_type.into_iter().collect();
     by_source_type.sort_by(|a, b| b.1.cmp(&a.1));
 
     IndexStats {
@@ -350,12 +324,11 @@ struct StreamPayload {
 #[tauri::command]
 pub fn load_history(state: State<'_, AppState>) -> Vec<HistoryEntryInfo> {
     let inner = state.0.lock().unwrap();
-    let history = match rag_core::history::HistoryManager::new(
-        &inner.config.conversation.history_dir
-    ) {
-        Ok(h) => h,
-        Err(_) => return vec![],
-    };
+    let history =
+        match rag_core::history::HistoryManager::new(&inner.config.conversation.history_dir) {
+            Ok(h) => h,
+            Err(_) => return vec![],
+        };
 
     match history.list() {
         Ok(entries) => entries
@@ -377,10 +350,8 @@ pub fn load_conversation(
     state: State<'_, AppState>,
 ) -> Result<rag_core::conversation::Conversation, String> {
     let mut inner = state.0.lock().unwrap();
-    let history = rag_core::history::HistoryManager::new(
-        &inner.config.conversation.history_dir
-    )
-    .map_err(|e| e.to_string())?;
+    let history = rag_core::history::HistoryManager::new(&inner.config.conversation.history_dir)
+        .map_err(|e| e.to_string())?;
 
     match history.find_path(&session_id) {
         Some(path) => {
@@ -395,15 +366,10 @@ pub fn load_conversation(
 
 /// Save current session to history
 #[tauri::command]
-pub fn save_session(
-    session_id: String,
-    state: State<'_, AppState>,
-) -> Result<(), String> {
+pub fn save_session(session_id: String, state: State<'_, AppState>) -> Result<(), String> {
     let inner = state.0.lock().unwrap();
-    let history = rag_core::history::HistoryManager::new(
-        &inner.config.conversation.history_dir,
-    )
-    .map_err(|e| e.to_string())?;
+    let history = rag_core::history::HistoryManager::new(&inner.config.conversation.history_dir)
+        .map_err(|e| e.to_string())?;
 
     if let Some(conv) = inner.sessions.get(&session_id) {
         if !conv.messages.is_empty() {
@@ -417,10 +383,8 @@ pub fn save_session(
 #[tauri::command]
 pub fn save_all_sessions(state: State<'_, AppState>) -> Result<(), String> {
     let inner = state.0.lock().unwrap();
-    let history = rag_core::history::HistoryManager::new(
-        &inner.config.conversation.history_dir,
-    )
-    .map_err(|e| e.to_string())?;
+    let history = rag_core::history::HistoryManager::new(&inner.config.conversation.history_dir)
+        .map_err(|e| e.to_string())?;
 
     for conv in inner.sessions.values() {
         if !conv.messages.is_empty() {
