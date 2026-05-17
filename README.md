@@ -215,15 +215,29 @@ LANで使用するOpenAI互換HTTPサーバーです。デフォルトバイン�
 # Start the HTTP server
 cargo run --release --bin rag-server
 
-# Chat completions (OpenAI-compatible)
+# Chat completions (OpenAI-compatible) — new session
 curl http://localhost:18080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"Hello"}]}'
+
+# Continue an existing session (session_id is returned in the response)
+curl http://localhost:18080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"Tell me more"}],"session_id":"20260506_143022"}'
 
 # Streaming responses
 curl http://localhost:18080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"messages":[{"role":"user","content":"Hello"}],"stream":true}'
+
+# List all sessions
+curl http://localhost:18080/v1/sessions
+
+# Get session history
+curl http://localhost:18080/v1/sessions/20260506_143022
+
+# Delete a session
+curl -X DELETE http://localhost:18080/v1/sessions/20260506_143022
 
 # Ingest a directory
 curl -X POST http://localhost:18080/v1/ingest \

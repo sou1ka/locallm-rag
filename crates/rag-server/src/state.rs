@@ -3,13 +3,17 @@
 use crate::config::Config;
 use anyhow::Result;
 use rag_core::{embedder::Embedder, llm::LlmClient, store::Store};
-use std::sync::{Arc, Mutex};
+use std::{
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 pub struct AppStateInner {
     pub config: Config,
     pub store: Store,
     pub embedder: Embedder,
     pub llm: Arc<LlmClient>,
+    pub history_dir: PathBuf,
 }
 
 #[derive(Clone)]
@@ -28,7 +32,9 @@ impl AppState {
                 .map_err(|e| anyhow::anyhow!("Failed to init LLM client: {}", e))?,
         );
 
-        let inner = AppStateInner { config, store, embedder, llm };
+        let history_dir = PathBuf::from(&config.conversation.history_dir);
+
+        let inner = AppStateInner { config, store, embedder, llm, history_dir };
         Ok(AppState(Arc::new(Mutex::new(inner))))
     }
 }

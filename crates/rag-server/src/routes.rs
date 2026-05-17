@@ -3,7 +3,7 @@
 use crate::state::AppState;
 use axum::{
     body::Body,
-    extract::{Json, State},
+    extract::{Json, Path, State},
     http::{header, Request, StatusCode},
     middleware::{self, Next},
     response::{
@@ -15,12 +15,14 @@ use axum::{
 };
 use futures::stream::{self, StreamExt};
 use rag_core::{
+    conversation::{Conversation, Message},
+    history::{current_datetime, HistoryManager},
     ingestor,
     llm::{build_rag_prompt, default_system_prompt, ChatMessage, MessageRole},
     retriever::Retriever,
 };
 use serde::{Deserialize, Serialize};
-use std::{convert::Infallible, path::Path};
+use std::{convert::Infallible, path::Path as FsPath};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 use uuid::Uuid;
@@ -31,6 +33,9 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/ingest", post(ingest))
         .route("/v1/index/stats", get(index_stats))
         .route("/v1/index", delete(reset_index))
+        .route("/v1/sessions", get(list_sessions))
+        .route("/v1/sessions/:id", get(get_session))
+        .route("/v1/sessions/:id", delete(delete_session))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     Router::new()
@@ -86,6 +91,8 @@ struct ChatRequest {
     temperature: f32,
     #[serde(default = "default_max_tokens")]
     max_tokens: u16,
+    /// 既存セッションを継続する場合に指定。省略時は新規セッションを作成。
+    session_id: Option<String>,
 }
 
 fn default_temperature() -> f32 {
@@ -126,9 +133,37 @@ async fn chat_completions(
         .content
         .clone();
 
-    let (system_prompt, history_msgs) = extract_system_and_history(&req.messages);
+    // セッション準備（ロック外でIO）
+    let session_id = req.session_id.clone().unwrap_or_else(current_datetime);
 
-    // Hold mutex only for embedding + retrieval, then release before streaming
+    let history_dir = {
+        let inner = state.0.lock().map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "state lock poisoned" })),
+            )
+        })?;
+        inner.history_dir.clone()
+    };
+
+    let conversation = {
+        let history = HistoryManager::new(&history_dir).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("history error: {}", e) })),
+            )
+        })?;
+        if req.session_id.is_some() {
+            history
+                .find_path(&session_id)
+                .and_then(|p| history.load(&p).ok())
+                .unwrap_or_else(|| Conversation::new(session_id.clone()))
+        } else {
+            Conversation::new(session_id.clone())
+        }
+    };
+
+    // RAG + プロンプト構築（ロック内）
     let (messages, llm, model_name) = {
         let inner = state.0.lock().map_err(|_| {
             (
@@ -137,19 +172,22 @@ async fn chat_completions(
             )
         })?;
 
-        let query_embedding = inner
-            .embedder
-            .embed_query(&last_user)
-            .map_err(|e| {
-                (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(serde_json::json!({ "error": format!("embedding failed: {}", e) })),
-                )
-            })?;
+        let query_embedding = inner.embedder.embed_query(&last_user).map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": format!("embedding failed: {}", e) })),
+            )
+        })?;
 
         let retriever = Retriever::new(&inner.store, inner.config.rag.clone());
         let rag_results = retriever.retrieve(&query_embedding).unwrap_or_default();
         let context = rag_core::conversation::build_context(&rag_results);
+
+        let (system_prompt, history_msgs) = if req.session_id.is_some() {
+            (default_system_prompt().to_string(), conversation.to_chat_messages())
+        } else {
+            extract_system_and_history(&req.messages)
+        };
 
         let messages = build_rag_prompt(&system_prompt, &context, history_msgs, &last_user);
         let llm = inner.llm.clone();
@@ -168,13 +206,32 @@ async fn chat_completions(
         let (tx, rx) = mpsc::unbounded_channel::<String>();
         let id_for_tokens = completion_id.clone();
         let model_for_tokens = model_name.clone();
+        let last_user_for_save = last_user.clone();
+        let session_id_for_event = session_id.clone();
 
         tokio::spawn(async move {
+            let mut full_response = String::new();
             let _ = llm
                 .complete_stream(messages, req.temperature, req.max_tokens, |token| {
+                    full_response.push_str(&token);
                     let _ = tx.send(token);
                 })
                 .await;
+
+            let mut conv = conversation;
+            conv.push(Message::user(last_user_for_save));
+            conv.push(Message::assistant(full_response));
+            if let Ok(history) = HistoryManager::new(&history_dir) {
+                let _ = history.save(&conv);
+            }
+        });
+
+        // 最初に session_id を通知
+        let session_event = stream::once(async move {
+            Ok::<Event, Infallible>(
+                Event::default()
+                    .data(serde_json::json!({ "session_id": session_id_for_event }).to_string()),
+            )
         });
 
         let token_stream = UnboundedReceiverStream::new(rx).map(move |token| {
@@ -201,7 +258,13 @@ async fn chat_completions(
         let done_marker =
             stream::once(async { Ok::<Event, Infallible>(Event::default().data("[DONE]")) });
 
-        Ok(Sse::new(token_stream.chain(done_event).chain(done_marker)).into_response())
+        Ok(Sse::new(
+            session_event
+                .chain(token_stream)
+                .chain(done_event)
+                .chain(done_marker),
+        )
+        .into_response())
     } else {
         let response_text = llm
             .complete(messages, req.temperature, req.max_tokens)
@@ -213,11 +276,19 @@ async fn chat_completions(
                 )
             })?;
 
+        let mut conv = conversation;
+        conv.push(Message::user(last_user));
+        conv.push(Message::assistant(response_text.clone()));
+        if let Ok(history) = HistoryManager::new(&history_dir) {
+            let _ = history.save(&conv);
+        }
+
         let body = serde_json::json!({
             "id": completion_id,
             "object": "chat.completion",
             "created": created,
             "model": model_name,
+            "session_id": session_id,
             "choices": [{
                 "index": 0,
                 "message": { "role": "assistant", "content": response_text },
@@ -240,7 +311,6 @@ fn extract_system_and_history(messages: &[ApiMessage]) -> (String, Vec<ChatMessa
 
     let rest = &messages[start..];
 
-    // Index of the last "user" message within `rest`
     let history_end = rest
         .iter()
         .enumerate()
@@ -261,6 +331,144 @@ fn extract_system_and_history(messages: &[ApiMessage]) -> (String, Vec<ChatMessa
     (system_prompt, history)
 }
 
+// ── Sessions ──────────────────────────────────────────────────────────────────
+
+async fn list_sessions(
+    State(state): State<AppState>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let history_dir = {
+        let inner = state.0.lock().map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "state lock poisoned" })),
+            )
+        })?;
+        inner.history_dir.clone()
+    };
+
+    let history = HistoryManager::new(&history_dir).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("history error: {}", e) })),
+        )
+    })?;
+
+    let entries = history.list().map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("list error: {}", e) })),
+        )
+    })?;
+
+    let sessions: Vec<_> = entries
+        .iter()
+        .map(|e| {
+            serde_json::json!({
+                "session_id": e.session_id,
+                "title": e.title,
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({ "sessions": sessions })))
+}
+
+async fn get_session(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let history_dir = {
+        let inner = state.0.lock().map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "state lock poisoned" })),
+            )
+        })?;
+        inner.history_dir.clone()
+    };
+
+    let history = HistoryManager::new(&history_dir).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("history error: {}", e) })),
+        )
+    })?;
+
+    let path = history.find_path(&id).ok_or_else(|| {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("session not found: {}", id) })),
+        )
+    })?;
+
+    let conv = history.load(&path).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("load error: {}", e) })),
+        )
+    })?;
+
+    let messages: Vec<_> = conv
+        .messages
+        .iter()
+        .map(|m| {
+            serde_json::json!({
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at,
+            })
+        })
+        .collect();
+
+    Ok(Json(serde_json::json!({
+        "session_id": conv.id,
+        "title": conv.title,
+        "messages": messages,
+        "created_at": conv.created_at,
+        "updated_at": conv.updated_at,
+    })))
+}
+
+async fn delete_session(
+    State(state): State<AppState>,
+    Path(id): Path<String>,
+) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
+    let history_dir = {
+        let inner = state.0.lock().map_err(|_| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "state lock poisoned" })),
+            )
+        })?;
+        inner.history_dir.clone()
+    };
+
+    let history = HistoryManager::new(&history_dir).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("history error: {}", e) })),
+        )
+    })?;
+
+    let deleted = history.delete(&id).map_err(|e| {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({ "error": format!("delete error: {}", e) })),
+        )
+    })?;
+
+    if deleted {
+        Ok(Json(
+            serde_json::json!({ "status": "ok", "message": format!("session {} deleted", id) }),
+        ))
+    } else {
+        Err((
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": format!("session not found: {}", id) })),
+        ))
+    }
+}
+
 // ── Ingest ────────────────────────────────────────────────────────────────────
 
 #[derive(Deserialize)]
@@ -274,7 +482,7 @@ async fn ingest(
     State(state): State<AppState>,
     Json(req): Json<IngestRequest>,
 ) -> Result<Json<serde_json::Value>, (StatusCode, Json<serde_json::Value>)> {
-    let target = Path::new(&req.path);
+    let target = FsPath::new(&req.path);
     if !target.exists() {
         return Err((
             StatusCode::BAD_REQUEST,
@@ -310,7 +518,6 @@ async fn ingest(
 
     let chunk_count = chunks.len();
 
-    // バッチEmbedding（ロック保持中）
     let texts: Vec<&str> = chunks.iter().map(|c| c.content.as_str()).collect();
     let embeddings = inner.embedder.embed_documents(texts).map_err(|e| {
         (
