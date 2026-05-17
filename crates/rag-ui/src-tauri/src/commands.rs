@@ -150,7 +150,7 @@ pub async fn query(
 
     // LLM呼び出し
     let messages = rag_core::llm::build_rag_prompt(
-        rag_core::llm::default_system_prompt(),
+        &rag_core::llm::default_system_prompt(),
         &context,
         vec![],
         &text,
@@ -221,7 +221,7 @@ pub async fn chat(
         .chat_stream(
             &message,
             &rag_results,
-            rag_core::llm::default_system_prompt(),
+            &rag_core::llm::default_system_prompt(),
             move |token| {
                 app_handle_clone
                     .emit(
