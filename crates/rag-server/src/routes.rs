@@ -105,7 +105,45 @@ fn default_max_tokens() -> u16 {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 struct ApiMessage {
     role: String,
-    content: String,
+    content: MessageContent,
+}
+
+impl ApiMessage {
+    fn text(&self) -> String {
+        self.content.as_text()
+    }
+}
+
+/// OpenAI互換の content フィールド（文字列と配列の両形式に対応）
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(untagged)]
+enum MessageContent {
+    Text(String),
+    Parts(Vec<ContentPart>),
+}
+
+impl MessageContent {
+    fn as_text(&self) -> String {
+        match self {
+            MessageContent::Text(s) => s.clone(),
+            // テキスト部分のみ結合して返す（画像等は無視）
+            MessageContent::Parts(parts) => parts
+                .iter()
+                .filter_map(|p| p.text.as_deref())
+                .collect::<Vec<_>>()
+                .join(""),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+struct ContentPart {
+    #[serde(rename = "type")]
+    kind: String,
+    #[serde(default)]
+    text: Option<String>,
+    #[serde(default)]
+    image_url: Option<serde_json::Value>,
 }
 
 async fn chat_completions(
@@ -130,8 +168,7 @@ async fn chat_completions(
                 Json(serde_json::json!({ "error": "no user message found" })),
             )
         })?
-        .content
-        .clone();
+        .text();
 
     // セッション準備（ロック外でIO）
     let session_id = req.session_id.clone().unwrap_or_else(current_datetime);
@@ -184,7 +221,7 @@ async fn chat_completions(
         let context = rag_core::conversation::build_context(&rag_results);
 
         let (system_prompt, history_msgs) = if req.session_id.is_some() {
-            (default_system_prompt().to_string(), conversation.to_chat_messages())
+            (default_system_prompt(), conversation.to_chat_messages())
         } else {
             extract_system_and_history(&req.messages)
         };
@@ -304,9 +341,9 @@ async fn chat_completions(
 /// Split messages into (system_prompt, history_before_last_user_message)
 fn extract_system_and_history(messages: &[ApiMessage]) -> (String, Vec<ChatMessage>) {
     let (start, system_prompt) = if messages.first().map(|m| m.role.as_str()) == Some("system") {
-        (1, messages[0].content.clone())
+        (1, messages[0].text())
     } else {
-        (0, default_system_prompt().to_string())
+        (0, default_system_prompt())
     };
 
     let rest = &messages[start..];
@@ -322,8 +359,8 @@ fn extract_system_and_history(messages: &[ApiMessage]) -> (String, Vec<ChatMessa
     let history = rest[..history_end]
         .iter()
         .filter_map(|m| match m.role.as_str() {
-            "user" => Some(ChatMessage::new(MessageRole::User, m.content.clone())),
-            "assistant" => Some(ChatMessage::new(MessageRole::Assistant, m.content.clone())),
+            "user" => Some(ChatMessage::new(MessageRole::User, m.text())),
+            "assistant" => Some(ChatMessage::new(MessageRole::Assistant, m.text())),
             _ => None,
         })
         .collect();

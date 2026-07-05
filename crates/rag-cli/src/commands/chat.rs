@@ -206,7 +206,7 @@ pub async fn run(
             .chat_stream(
                 &input,
                 &rag_results,
-                default_system_prompt(),
+                &default_system_prompt(),
                 |token| {
                     print!("{}", token);
                     io::stdout().flush().ok();

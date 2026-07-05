@@ -251,9 +251,35 @@ pub fn build_rag_prompt(
 }
 
 /// Default system prompt for RAG-based QA
-pub fn default_system_prompt() -> &'static str {
-    "You are a helpful assistant. Answer the user's question based on the provided context. \
-     If the context doesn't contain relevant information, say so honestly."
+/// 現在日付を含む（「先週」「来月」などの表現に対応するため）
+pub fn default_system_prompt() -> String {
+    let now = chrono::Local::now();
+    let datetime = now.format("%Y-%m-%d %H:%M:%S %:z").to_string();
+    let year = now.format("%Y").to_string().parse::<i32>().unwrap_or(0);
+    let month = now.format("%m").to_string().parse::<u32>().unwrap_or(0);
+    let day = now.format("%d").to_string().parse::<u32>().unwrap_or(0);
+    let wareki = japanese_era(year, month, day);
+    let koki = year + 660;
+    format!(
+        "You are a helpful assistant. Answer the user's question based on the provided context. \
+         If the context doesn't contain relevant information, say so honestly.\n\
+         Today's date and time is {} ({} / Koki {}).",
+        datetime, wareki, koki
+    )
+}
+
+/// 西暦から和暦に変換する
+fn japanese_era(year: i32, month: u32, day: u32) -> String {
+    let (era, base) = if (year, month, day) >= (2019, 5, 1) {
+        ("令和", 2018)
+    } else if (year, month, day) >= (1989, 1, 8) {
+        ("平成", 1988)
+    } else if (year, month, day) >= (1926, 12, 25) {
+        ("昭和", 1925)
+    } else {
+        ("大正", 1911)
+    };
+    format!("{}{}年", era, year - base)
 }
 
 #[cfg(test)]

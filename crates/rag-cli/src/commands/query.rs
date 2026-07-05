@@ -110,7 +110,7 @@ pub async fn run(
 
     // プロンプト構築
     let messages = build_rag_prompt(
-        default_system_prompt(),
+        &default_system_prompt(),
         &context,
         vec![],
         text,
