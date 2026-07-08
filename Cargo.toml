@@ -4,6 +4,7 @@ members = [
     "crates/rag-cli",
     "crates/rag-ui/src-tauri",
     "crates/rag-server",
+    "crates/tts-emotion",
 ]
 resolver = "2"
 

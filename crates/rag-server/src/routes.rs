@@ -36,6 +36,7 @@ pub fn router(state: AppState) -> Router {
         .route("/v1/sessions", get(list_sessions))
         .route("/v1/sessions/:id", get(get_session))
         .route("/v1/sessions/:id", delete(delete_session))
+        .route("/v1/ws", get(crate::ws::ws_handler))
         .layer(middleware::from_fn_with_state(state.clone(), auth_middleware));
 
     Router::new()

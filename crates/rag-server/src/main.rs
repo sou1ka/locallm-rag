@@ -6,6 +6,7 @@
 mod config;
 mod routes;
 mod state;
+mod ws;
 
 use anyhow::Result;
 use std::net::SocketAddr;
@@ -15,17 +16,22 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let config_path = find_config();
+    let config = config::Config::load(&config_path)?;
+
+    // ログフィルタの優先順位: RUST_LOG 環境変数 > config.toml の server.log_filter > デフォルト
+    let log_filter = std::env::var("RUST_LOG")
+        .ok()
+        .or_else(|| config.server.log_filter.clone())
+        .unwrap_or_else(|| "rag_server=info".into());
+
     tracing_subscriber::registry()
-        .with(tracing_subscriber::EnvFilter::new(
-            std::env::var("RUST_LOG").unwrap_or_else(|_| "rag_server=info".into()),
-        ))
+        .with(tracing_subscriber::EnvFilter::new(log_filter))
         .with(tracing_subscriber::fmt::layer())
         .init();
 
-    let config_path = find_config();
-    tracing::info!("Loading config from: {}", config_path);
+    tracing::info!("Loaded config from: {}", config_path);
 
-    let config = config::Config::load(&config_path)?;
     let bind_addr = format!("{}:{}", config.server.host, config.server.port);
 
     let app_state = state::AppState::init(config)?;

@@ -1,0 +1,21 @@
+# 感情推定ルール
+# キーワードの出現数が最多の感情が選ばれる。同数は定義順が先の感情が優先。
+# どれにもマッチしない場合は default が使われる。
+# motion_id は Live2D 側の Motions グループに対応するキー（省略可）。
+
+default = "neutral"
+
+[[emotions]]
+name = "joy"
+keywords = ["嬉しい", "楽しい", "ありがとう", "やった", "最高", "好き", "笑"]
+motion_id = "joy"
+
+[[emotions]]
+name = "sad"
+keywords = ["悲しい", "残念", "ごめん", "すみません", "泣", "辛い"]
+motion_id = "sad"
+
+[[emotions]]
+name = "surprise"
+keywords = ["驚き", "びっくり", "まさか", "えっ", "本当に", "すごい"]
+motion_id = "surprise"

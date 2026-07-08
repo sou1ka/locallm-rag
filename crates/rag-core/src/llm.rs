@@ -250,9 +250,8 @@ pub fn build_rag_prompt(
     messages
 }
 
-/// Default system prompt for RAG-based QA
-/// 現在日付を含む（「先週」「来月」などの表現に対応するため）
-pub fn default_system_prompt() -> String {
+/// 現在日時の情報行（システムプロンプト末尾への付与用）
+pub fn datetime_info() -> String {
     let now = chrono::Local::now();
     let datetime = now.format("%Y-%m-%d %H:%M:%S %:z").to_string();
     let year = now.format("%Y").to_string().parse::<i32>().unwrap_or(0);
@@ -261,10 +260,19 @@ pub fn default_system_prompt() -> String {
     let wareki = japanese_era(year, month, day);
     let koki = year + 660;
     format!(
+        "Today's date and time is {} ({} / Koki {}).",
+        datetime, wareki, koki
+    )
+}
+
+/// Default system prompt for RAG-based QA
+/// 現在日付を含む（「先週」「来月」などの表現に対応するため）
+pub fn default_system_prompt() -> String {
+    format!(
         "You are a helpful assistant. Answer the user's question based on the provided context. \
          If the context doesn't contain relevant information, say so honestly.\n\
-         Today's date and time is {} ({} / Koki {}).",
-        datetime, wareki, koki
+         {}",
+        datetime_info()
     )
 }
 

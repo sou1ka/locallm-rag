@@ -14,8 +14,10 @@ query_prefix      = "クエリ: "
 embed_batch_size  = 128
 
 [llm]
-base_url = "http://localhost:18888/v1"
-model    = "Bonsai-8B-Q1_0"
+#base_url = "http://localhost:18888/v1"
+#model    = "Bonsai-8B-Q1_0"
+base_url = "http://localhost:11434/v1"
+model    = "gemma4:e4b"
 api_key  = "dummy"
 
 [conversation]
@@ -29,3 +31,16 @@ history_dir         = "./history"
 host    = "127.0.0.1"
 port    = 18080
 api_key = ""           # Bearer token; leave empty to disable auth
+log_filter = "rag_server=info,tower_http=debug"   # 省略可
+
+[tts]
+base_url = "http://localhost:8000/v1"
+model    = "voicevox-v1"
+voice    = "coral"
+
+[emotion]
+rules_path = "./emotion_rules.toml"
+
+[chara]
+dir     = "./chara"
+default = "sample"     # リクエストで chara 未指定の場合に使うキャラID。省略時はデフォルトプロンプト
